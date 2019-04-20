@@ -1,6 +1,6 @@
 Please update this file to reflect your progress by adding a * inside the brackets for each task you have completed.
 
-[ ] 1: Building and execution
+[*] 1: Building and execution
 [ ] 2: Configuration 
 [ ] 3: Server Integration
 [ ] 3: Client Integration

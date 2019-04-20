@@ -1,5 +1,6 @@
 package comp1206.sushi.server;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -51,8 +52,11 @@ public class Server implements ServerInterface {
 		Dish dish1 = addDish("Dish 1","Dish 1",1,1,10);
 		Dish dish2 = addDish("Dish 2","Dish 2",2,1,10);
 		Dish dish3 = addDish("Dish 3","Dish 3",3,1,10);
-		
-		orders.add(new Order());
+
+		User user = new User("khadgar", "Theb3stw1zard", "1 Citadel Lane, Dalaran", postcode5);
+
+		users.add(user);
+		orders.add(new Order(user));
 
 		addIngredientToDish(dish1,ingredient1,1);
 		addIngredientToDish(dish1,ingredient2,2);
@@ -112,7 +116,7 @@ public class Server implements ServerInterface {
 	
 	@Override
 	public void setStock(Dish dish, Number stock) {
-	
+
 	}
 
 	@Override
@@ -128,10 +132,10 @@ public class Server implements ServerInterface {
 	@Override
 	public Ingredient addIngredient(String name, String unit, Supplier supplier,
 			Number restockThreshold, Number restockAmount, Number weight) {
-		Ingredient mockIngredient = new Ingredient(name,unit,supplier,restockThreshold,restockAmount,weight);
-		this.ingredients.add(mockIngredient);
+		Ingredient ingredient = new Ingredient(name,unit,supplier,restockThreshold,restockAmount,weight);
+		this.ingredients.add(ingredient);
 		this.notifyUpdate();
-		return mockIngredient;
+		return ingredient;
 	}
 
 	@Override
@@ -148,9 +152,9 @@ public class Server implements ServerInterface {
 
 	@Override
 	public Supplier addSupplier(String name, Postcode postcode) {
-		Supplier mock = new Supplier(name,postcode);
-		this.suppliers.add(mock);
-		return mock;
+		Supplier supplier = new Supplier(name,postcode);
+		this.suppliers.add(supplier);
+		return supplier;
 	}
 
 
@@ -168,9 +172,9 @@ public class Server implements ServerInterface {
 
 	@Override
 	public Drone addDrone(Number speed) {
-		Drone mock = new Drone(speed);
-		this.drones.add(mock);
-		return mock;
+		Drone drone = new Drone(speed);
+		this.drones.add(drone);
+		return drone;
 	}
 
 	@Override
@@ -187,14 +191,35 @@ public class Server implements ServerInterface {
 
 	@Override
 	public Staff addStaff(String name) {
-		Staff mock = new Staff(name);
-		this.staff.add(mock);
-		return mock;
+		Staff staff = new Staff(name);
+		this.staff.add(staff);
+		return staff;
 	}
 
 	@Override
 	public void removeStaff(Staff staff) {
 		this.staff.remove(staff);
+		this.notifyUpdate();
+	}
+
+	public Order addOrder(User customer)
+	{
+		Order order = new Order(customer);
+		this.orders.add(order);
+		return order;
+	}
+
+	public void addDishToOrder(Order order, Dish dish, Number quantity)
+	{
+		if(quantity == Integer.valueOf(0)) {
+			removeDishFromOrder(order, dish);
+		} else {
+			order.getOrderedDishes().put(dish, quantity);
+		}
+	}
+
+	public void removeDishFromOrder(Order order, Dish dish) {
+		order.getOrderedDishes().remove(dish);
 		this.notifyUpdate();
 	}
 
@@ -239,8 +264,7 @@ public class Server implements ServerInterface {
 
 	@Override
 	public Number getOrderDistance(Order order) {
-		Order mock = (Order)order;
-		return mock.getDistance();
+		return order.getDistance();
 	}
 
 	@Override
@@ -270,16 +294,24 @@ public class Server implements ServerInterface {
 
 	@Override
 	public Postcode addPostcode(String code) {
-		Postcode mock = new Postcode(code);
-		this.postcodes.add(mock);
+		Postcode postcode = new Postcode(code);
+		this.postcodes.add(postcode);
 		this.notifyUpdate();
-		return mock;
+		return postcode;
 	}
 
 	@Override
 	public void removePostcode(Postcode postcode) throws UnableToDeleteException {
 		this.postcodes.remove(postcode);
 		this.notifyUpdate();
+	}
+
+	public User addUser(String username, String password, String address, Postcode postcode)
+	{
+		User user = new User(username, password, address, postcode);
+		this.users.add(user);
+		this.notifyUpdate();
+		return user;
 	}
 
 	@Override
@@ -294,7 +326,21 @@ public class Server implements ServerInterface {
 	}
 
 	@Override
-	public void loadConfiguration(String filename) {
+	public void loadConfiguration(String filename)
+	{
+		Configuration configuration = new Configuration(filename, this);
+
+		clearData();
+
+		try
+		{
+			configuration.parseConfigFile();
+		}
+		catch (IOException ex)
+		{
+			ex.getStackTrace();
+		}
+
 		System.out.println("Loaded configuration: " + filename);
 	}
 
@@ -400,6 +446,12 @@ public class Server implements ServerInterface {
 		return drone.getProgress();
 	}
 
+	public Restaurant setRestaurant(String name, Postcode postcode) {
+		restaurant = new Restaurant(name, postcode);
+		this.notifyUpdate();
+		return restaurant;
+	}
+
 	@Override
 	public String getRestaurantName() {
 		return restaurant.getName();
@@ -415,5 +467,16 @@ public class Server implements ServerInterface {
 		return restaurant;
 	}
 
-
+	private void clearData()
+	{
+		restaurant = null;
+		dishes.clear();
+		drones.clear();
+		ingredients.clear();
+		orders.clear();
+		staff.clear();
+		suppliers.clear();
+		users.clear();
+		postcodes.clear();
+	}
 }
