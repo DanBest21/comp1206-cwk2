@@ -10,14 +10,14 @@ import comp1206.sushi.common.Order;
 public class Order extends Model {
 
 	private String status;
-	private User customer;
 	private Map<Dish, Number> orderedDishes;
+	private boolean isComplete = false;
+	private boolean isCancelled = false;
 	
-	public Order(User customer) {
+	public Order() {
 		DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/YYYY HH:mm:ss");  
 		LocalDateTime now = LocalDateTime.now();  
 		this.name = dtf.format(now);
-		this.customer = customer;
 	}
 
 	public Number getDistance() {
@@ -38,11 +38,15 @@ public class Order extends Model {
 		this.status = status;
 	}
 
-	public User getCustomer() { return this.customer; }
-
-	public void setCustomer(User customer) { this.customer = customer; }
-
 	public Map<Dish, Number> getOrderedDishes() { return this.orderedDishes; }
 
 	public void setOrderedDishes(Map<Dish, Number> orderedDishes) { this.orderedDishes = orderedDishes; }
+
+	public boolean isComplete() { return isComplete; }
+
+	public void completeOrder() { isComplete = true; }
+
+	public boolean isCancelled() { return isCancelled; }
+
+	public void cancelOrder() { isCancelled = true; }
 }

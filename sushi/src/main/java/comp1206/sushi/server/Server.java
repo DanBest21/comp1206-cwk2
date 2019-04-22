@@ -1,14 +1,12 @@
 package comp1206.sushi.server;
 
-import java.io.IOException;
+import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
-
-import javax.swing.JOptionPane;
 
 import comp1206.sushi.common.*;
 import org.apache.logging.log4j.LogManager;
@@ -28,12 +26,15 @@ public class Server implements ServerInterface {
 	public ArrayList<User> users = new ArrayList<User>();
 	public ArrayList<Postcode> postcodes = new ArrayList<Postcode>();
 	private ArrayList<UpdateListener> listeners = new ArrayList<UpdateListener>();
+
+	private boolean restockIngredients = false;
+	private boolean restockDishes = false;
 	
 	public Server() {
         logger.info("Starting up server...");
 		
-		Postcode restaurantPostcode = new Postcode("SO17 1BJ");
-		restaurant = new Restaurant("Mock Restaurant",restaurantPostcode);
+		Postcode restaurantPostcode = addPostcode("SO17 1BJ");
+		restaurant = setRestaurant("Mock Restaurant", restaurantPostcode);
 		
 		Postcode postcode1 = addPostcode("SO17 1TJ");
 		Postcode postcode2 = addPostcode("SO17 1BX");
@@ -41,29 +42,24 @@ public class Server implements ServerInterface {
 		Postcode postcode4 = addPostcode("SO17 1TW");
 		Postcode postcode5 = addPostcode("SO17 2LB");
 		
-		Supplier supplier1 = addSupplier("Supplier 1",postcode1);
-		Supplier supplier2 = addSupplier("Supplier 2",postcode2);
-		Supplier supplier3 = addSupplier("Supplier 3",postcode3);
+		Supplier supplier1 = addSupplier("Supplier 1", postcode1);
+		Supplier supplier2 = addSupplier("Supplier 2", postcode2);
+		Supplier supplier3 = addSupplier("Supplier 3", postcode3);
 		
-		Ingredient ingredient1 = addIngredient("Ingredient 1","grams",supplier1,1,5,1);
-		Ingredient ingredient2 = addIngredient("Ingredient 2","grams",supplier2,1,5,1);
-		Ingredient ingredient3 = addIngredient("Ingredient 3","grams",supplier3,1,5,1);
+		Ingredient ingredient1 = addIngredient("Ingredient 1","grams", supplier1,1,5,1);
+		Ingredient ingredient2 = addIngredient("Ingredient 2","grams", supplier2,1,5,1);
+		Ingredient ingredient3 = addIngredient("Ingredient 3","grams", supplier3,1,5,1);
 		
 		Dish dish1 = addDish("Dish 1","Dish 1",1,1,10);
 		Dish dish2 = addDish("Dish 2","Dish 2",2,1,10);
 		Dish dish3 = addDish("Dish 3","Dish 3",3,1,10);
 
-		User user = new User("khadgar", "Theb3stw1zard", "1 Citadel Lane, Dalaran", postcode5);
-
-		users.add(user);
-		orders.add(new Order(user));
-
-		addIngredientToDish(dish1,ingredient1,1);
-		addIngredientToDish(dish1,ingredient2,2);
-		addIngredientToDish(dish2,ingredient2,3);
-		addIngredientToDish(dish2,ingredient3,1);
-		addIngredientToDish(dish3,ingredient1,2);
-		addIngredientToDish(dish3,ingredient3,1);
+		addIngredientToDish(dish1, ingredient1,1);
+		addIngredientToDish(dish1, ingredient2,2);
+		addIngredientToDish(dish2, ingredient2,3);
+		addIngredientToDish(dish2, ingredient3,1);
+		addIngredientToDish(dish3, ingredient1,2);
+		addIngredientToDish(dish3, ingredient3,1);
 		
 		addStaff("Staff 1");
 		addStaff("Staff 2");
@@ -88,11 +84,14 @@ public class Server implements ServerInterface {
 	}
 	
 	@Override
-	public void removeDish(Dish dish) {
+	public void removeDish(Dish dish) throws UnableToDeleteException {
+		if (!this.dishes.contains(dish))
+			throw new UnableToDeleteException("Unable to delete Dish \"" + dish.getName() + "\" as it does not exist on the server.");
 		this.dishes.remove(dish);
 		this.notifyUpdate();
 	}
 
+	// TODO: Implement getDishStockLevels during Part 4.
 	@Override
 	public Map<Dish, Number> getDishStockLevels() {
 		Random random = new Random();
@@ -106,19 +105,23 @@ public class Server implements ServerInterface {
 	
 	@Override
 	public void setRestockingIngredientsEnabled(boolean enabled) {
-		
+		restockIngredients = enabled;
+		this.notifyUpdate();
 	}
 
 	@Override
 	public void setRestockingDishesEnabled(boolean enabled) {
-		
+		restockDishes = enabled;
+		this.notifyUpdate();
 	}
-	
+
+	// TODO: Implement setStock method during Part 4.
 	@Override
 	public void setStock(Dish dish, Number stock) {
 
 	}
 
+	// TODO: Implement setStock method during Part 4.
 	@Override
 	public void setStock(Ingredient ingredient, Number stock) {
 		
@@ -139,9 +142,10 @@ public class Server implements ServerInterface {
 	}
 
 	@Override
-	public void removeIngredient(Ingredient ingredient) {
-		int index = this.ingredients.indexOf(ingredient);
-		this.ingredients.remove(index);
+	public void removeIngredient(Ingredient ingredient) throws UnableToDeleteException {
+		if (!this.ingredients.contains(ingredient))
+			throw new UnableToDeleteException("Unable to delete Ingredient \"" + ingredient.getName() + "\" as it does not exist on the server.");
+		this.ingredients.remove(ingredient);
 		this.notifyUpdate();
 	}
 
@@ -154,14 +158,16 @@ public class Server implements ServerInterface {
 	public Supplier addSupplier(String name, Postcode postcode) {
 		Supplier supplier = new Supplier(name,postcode);
 		this.suppliers.add(supplier);
+		this.notifyUpdate();
 		return supplier;
 	}
 
 
 	@Override
-	public void removeSupplier(Supplier supplier) {
-		int index = this.suppliers.indexOf(supplier);
-		this.suppliers.remove(index);
+	public void removeSupplier(Supplier supplier) throws UnableToDeleteException {
+		if (!this.suppliers.contains(supplier))
+			throw new UnableToDeleteException("Unable to delete Supplier \"" + supplier.getName() + "\" as it does not exist on the server.");
+		this.suppliers.remove(supplier);
 		this.notifyUpdate();
 	}
 
@@ -174,13 +180,15 @@ public class Server implements ServerInterface {
 	public Drone addDrone(Number speed) {
 		Drone drone = new Drone(speed);
 		this.drones.add(drone);
+		this.notifyUpdate();
 		return drone;
 	}
 
 	@Override
-	public void removeDrone(Drone drone) {
-		int index = this.drones.indexOf(drone);
-		this.drones.remove(index);
+	public void removeDrone(Drone drone) throws UnableToDeleteException {
+		if (!this.drones.contains(drone))
+			throw new UnableToDeleteException("Unable to delete Drone \"" + drone.getName() + "\" as it does not exist on the server.");
+		this.drones.remove(drone);
 		this.notifyUpdate();
 	}
 
@@ -193,19 +201,24 @@ public class Server implements ServerInterface {
 	public Staff addStaff(String name) {
 		Staff staff = new Staff(name);
 		this.staff.add(staff);
+		this.notifyUpdate();
 		return staff;
 	}
 
 	@Override
-	public void removeStaff(Staff staff) {
+	public void removeStaff(Staff staff) throws UnableToDeleteException {
+		if (!this.staff.contains(staff))
+			throw new UnableToDeleteException("Unable to delete Staff \"" + staff.getName() + "\" as it does not exist on the server.");
 		this.staff.remove(staff);
 		this.notifyUpdate();
 	}
 
 	public Order addOrder(User customer)
 	{
-		Order order = new Order(customer);
+		Order order = new Order();
 		this.orders.add(order);
+		customer.placeOrder(order);
+		this.notifyUpdate();
 		return order;
 	}
 
@@ -216,6 +229,8 @@ public class Server implements ServerInterface {
 		} else {
 			order.getOrderedDishes().put(dish, quantity);
 		}
+
+		this.notifyUpdate();
 	}
 
 	public void removeDishFromOrder(Order order, Dish dish) {
@@ -229,18 +244,27 @@ public class Server implements ServerInterface {
 	}
 
 	@Override
-	public void removeOrder(Order order) {
-		int index = this.orders.indexOf(order);
-		this.orders.remove(index);
+	public void removeOrder(Order order) throws UnableToDeleteException {
+		if (!this.orders.contains(order))
+			throw new UnableToDeleteException("Unable to delete Order \"" + order.getName() + "\" as it does not exist on the server.");
+		this.orders.remove(order);
 		this.notifyUpdate();
 	}
-	
+
 	@Override
 	public Number getOrderCost(Order order) {
-		Random random = new Random();
-		return random.nextInt(100);
+		double cost = 0.0;
+
+		for (Map.Entry entry : order.getOrderedDishes().entrySet())
+		{
+			Dish dish = (Dish)entry.getKey();
+			cost = cost + (dish.getPrice().doubleValue() * (int)entry.getValue());
+		}
+
+		return cost;
 	}
 
+	// TODO: Implement getIngredientStockLevels during Part 4.
 	@Override
 	public Map<Ingredient, Number> getIngredientStockLevels() {
 		Random random = new Random();
@@ -274,6 +298,8 @@ public class Server implements ServerInterface {
 		} else {
 			dish.getRecipe().put(ingredient,quantity);
 		}
+
+		this.notifyUpdate();
 	}
 
 	@Override
@@ -302,6 +328,8 @@ public class Server implements ServerInterface {
 
 	@Override
 	public void removePostcode(Postcode postcode) throws UnableToDeleteException {
+		if (!this.postcodes.contains(postcode))
+			throw new UnableToDeleteException("Unable to delete Postcode \"" + postcode.getName() + "\" as it does not exist on the server.");
 		this.postcodes.remove(postcode);
 		this.notifyUpdate();
 	}
@@ -320,26 +348,22 @@ public class Server implements ServerInterface {
 	}
 	
 	@Override
-	public void removeUser(User user) {
+	public void removeUser(User user) throws UnableToDeleteException {
+		if (!this.users.contains(user))
+			throw new UnableToDeleteException("Unable to delete User \"" + user.getName() + "\" as it does not exist on the server.");
 		this.users.remove(user);
 		this.notifyUpdate();
 	}
 
+	// loadConfiguration(): Loads the configuration file into the server using the Configuration helper class.
 	@Override
-	public void loadConfiguration(String filename)
+	public void loadConfiguration(String filename) throws FileNotFoundException
 	{
 		Configuration configuration = new Configuration(filename, this);
 
 		clearData();
 
-		try
-		{
-			configuration.parseConfigFile();
-		}
-		catch (IOException ex)
-		{
-			ex.getStackTrace();
-		}
+		configuration.loadConfigFile();
 
 		System.out.println("Loaded configuration: " + filename);
 	}
@@ -354,37 +378,22 @@ public class Server implements ServerInterface {
 
 	@Override
 	public boolean isOrderComplete(Order order) {
-		return true;
+		return order.isComplete();
 	}
 
 	@Override
 	public String getOrderStatus(Order order) {
-		Random rand = new Random();
-		if(rand.nextBoolean()) {
-			return "Complete";
-		} else {
-			return "Pending";
-		}
+		return order.getStatus();
 	}
-	
+
 	@Override
 	public String getDroneStatus(Drone drone) {
-		Random rand = new Random();
-		if(rand.nextBoolean()) {
-			return "Idle";
-		} else {
-			return "Flying";
-		}
+		return drone.getStatus();
 	}
-	
+
 	@Override
 	public String getStaffStatus(Staff staff) {
-		Random rand = new Random();
-		if(rand.nextBoolean()) {
-			return "Idle";
-		} else {
-			return "Working";
-		}
+		return staff.getStatus();
 	}
 
 	@Override
@@ -467,6 +476,7 @@ public class Server implements ServerInterface {
 		return restaurant;
 	}
 
+	// clearData(): Clears all of the data on the server.
 	private void clearData()
 	{
 		restaurant = null;
@@ -478,5 +488,7 @@ public class Server implements ServerInterface {
 		suppliers.clear();
 		users.clear();
 		postcodes.clear();
+
+		this.notifyUpdate();
 	}
 }

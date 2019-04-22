@@ -1,16 +1,15 @@
-package comp1206.sushi.common;
+package comp1206.sushi.server;
 
-import comp1206.sushi.server.Server;
+import comp1206.sushi.common.*;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
+import java.util.NoSuchElementException;
 
+// Configuration class: Handles the configuration file, which can be used to load a server configuration.
 public class Configuration
 {
-    File configFile;
-    Server server;
+    private final File configFile;
+    private final Server server;
 
     public Configuration(String filename, Server server)
     {
@@ -18,27 +17,49 @@ public class Configuration
         this.server = server;
     }
 
-    public void parseConfigFile() throws IOException
+    // loadConfigFile(): Creates a BufferedReader object on the configFile File object.
+    public void loadConfigFile() throws FileNotFoundException
     {
         BufferedReader reader = new BufferedReader(new FileReader(configFile));
 
-        while (reader.ready())
+        parseConfigFile(reader);
+    }
+
+    // parseConfigFile(): Parses each line of the configuration file using a passed BufferedReader, calling the addModel() method when appropriate.
+    private void parseConfigFile(BufferedReader reader)
+    {
+        try
         {
-            String line = reader.readLine().trim();
-
-            if (!line.equals(""))
+            while (reader.ready())
             {
-                String[] object = line.split(":");
-                String[] parameters = new String[object.length - 1];
+                String line = reader.readLine().trim();
 
-                System.arraycopy(object, 1, parameters, 0, object.length - 1);
+                if (!line.equals(""))
+                {
+                    String[] object = line.split(":");
+                    String[] parameters = new String[object.length - 1];
 
-                addModel(object[0], parameters);
+                    System.arraycopy(object, 1, parameters, 0, object.length - 1);
+
+                    try
+                    {
+                        addModel(object[0], parameters);
+                    }
+                    catch (NoSuchElementException ex)
+                    {
+                        ex.printStackTrace();
+                    }
+                }
             }
+        }
+        catch (IOException ex)
+        {
+            ex.getStackTrace();
         }
     }
 
-    public void addModel(String modelName, String[] parameters)
+    // addModel(): Creates a new object of the appropriate model and adds it to the server.
+    public void addModel(String modelName, String[] parameters) throws NoSuchElementException
     {
         switch (modelName.toUpperCase())
         {
@@ -86,6 +107,7 @@ public class Configuration
         }
     }
 
+    // addIngredientsToDish(): Supplementary method that adds ingredients to a particular dish.
     private void addIngredientsToDish(Dish dish, String ingredients)
     {
         for (String ingredient : ingredients.split(","))
@@ -102,6 +124,7 @@ public class Configuration
         }
     }
 
+    // addDishesToOrder(): Supplementary method that adds dishes to a particular order.
     private void addDishesToOrder(Order order, String dishes)
     {
         for (String dish : dishes.split(","))
@@ -118,7 +141,8 @@ public class Configuration
         }
     }
 
-    private Postcode getPostcode(String name)
+    // getPostcode(): Supplementary method that returns the Postcode object associated to the passed String name from the server.
+    private Postcode getPostcode(String name) throws NoSuchElementException
     {
         for (Postcode postcode : server.getPostcodes())
         {
@@ -126,10 +150,11 @@ public class Configuration
                 return postcode;
         }
 
-        return null;
+        throw new NoSuchElementException("Cannot find Postcode object called \"" + name + "\"");
     }
 
-    private Supplier getSupplier(String name)
+    // getSupplier(): Supplementary method that returns the Supplier object associated to the passed String name from the server.
+    private Supplier getSupplier(String name) throws NoSuchElementException
     {
         for (Supplier supplier : server.getSuppliers())
         {
@@ -137,10 +162,11 @@ public class Configuration
                 return supplier;
         }
 
-        return null;
+        throw new NoSuchElementException("Cannot find Supplier object called \"" + name + "\"");
     }
 
-    private User getUser(String name)
+    // getUser(): Supplementary method that returns the User object associated to the passed String name from the server.
+    private User getUser(String name) throws NoSuchElementException
     {
         for (User user : server.getUsers())
         {
@@ -148,10 +174,11 @@ public class Configuration
                 return user;
         }
 
-        return null;
+        throw new NoSuchElementException("Cannot find User object called \"" + name + "\"");
     }
 
-    private void setStock(String item, int stock)
+    // setStock(): Supplementary method that sets the stock of either a Dish or Ingredient that is associated to the String item passed.
+    private void setStock(String item, int stock) throws NoSuchElementException
     {
         for (Dish dish : server.getDishes())
         {
@@ -170,5 +197,7 @@ public class Configuration
                 return;
             }
         }
+
+        throw new NoSuchElementException("Cannot find Dish or Ingredient object called \"" + item + "\"");
     }
 }
