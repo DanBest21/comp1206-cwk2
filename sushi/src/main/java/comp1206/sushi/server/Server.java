@@ -2,11 +2,9 @@ package comp1206.sushi.server;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Random;
 
 import comp1206.sushi.common.*;
 import org.apache.logging.log4j.LogManager;
@@ -25,10 +23,8 @@ public class Server implements ServerInterface {
 	public ArrayList<Supplier> suppliers = new ArrayList<Supplier>();
 	public ArrayList<User> users = new ArrayList<User>();
 	public ArrayList<Postcode> postcodes = new ArrayList<Postcode>();
+	public StockManager stockManager = new StockManager(dishes, ingredients);
 	private ArrayList<UpdateListener> listeners = new ArrayList<UpdateListener>();
-
-	private boolean restockIngredients = false;
-	private boolean restockDishes = false;
 	
 	public Server() {
         logger.info("Starting up server...");
@@ -68,6 +64,8 @@ public class Server implements ServerInterface {
 		addDrone(1);
 		addDrone(2);
 		addDrone(3);
+
+		stockManager.start();
 	}
 	
 	@Override
@@ -88,43 +86,37 @@ public class Server implements ServerInterface {
 		if (!this.dishes.contains(dish))
 			throw new UnableToDeleteException("Unable to delete Dish \"" + dish.getName() + "\" as it does not exist on the server.");
 		this.dishes.remove(dish);
+		stockManager.removeDish(dish);
 		this.notifyUpdate();
 	}
 
-	// TODO: Implement getDishStockLevels during Part 4.
 	@Override
 	public Map<Dish, Number> getDishStockLevels() {
-		Random random = new Random();
-		List<Dish> dishes = getDishes();
-		HashMap<Dish, Number> levels = new HashMap<Dish, Number>();
-		for(Dish dish : dishes) {
-			levels.put(dish,random.nextInt(50));
-		}
-		return levels;
+		return stockManager.getDishStockLevels();
 	}
 	
 	@Override
 	public void setRestockingIngredientsEnabled(boolean enabled) {
-		restockIngredients = enabled;
+		stockManager.setRestockingIngredientsEnabled(enabled);
 		this.notifyUpdate();
 	}
 
 	@Override
 	public void setRestockingDishesEnabled(boolean enabled) {
-		restockDishes = enabled;
+		stockManager.setRestockingDishesEnabled(enabled);
 		this.notifyUpdate();
 	}
 
-	// TODO: Implement setStock method during Part 4.
 	@Override
 	public void setStock(Dish dish, Number stock) {
-
+		stockManager.setStock(dish, stock);
+		this.notifyUpdate();
 	}
 
-	// TODO: Implement setStock method during Part 4.
 	@Override
 	public void setStock(Ingredient ingredient, Number stock) {
-		
+		stockManager.setStock(ingredient, stock);
+		this.notifyUpdate();
 	}
 
 	@Override
@@ -146,6 +138,7 @@ public class Server implements ServerInterface {
 		if (!this.ingredients.contains(ingredient))
 			throw new UnableToDeleteException("Unable to delete Ingredient \"" + ingredient.getName() + "\" as it does not exist on the server.");
 		this.ingredients.remove(ingredient);
+		stockManager.removeIngredient(ingredient);
 		this.notifyUpdate();
 	}
 
@@ -255,6 +248,9 @@ public class Server implements ServerInterface {
 	public Number getOrderCost(Order order) {
 		double cost = 0.0;
 
+		if (order.getOrderedDishes() == null)
+			return 0.0;
+
 		for (Map.Entry entry : order.getOrderedDishes().entrySet())
 		{
 			Dish dish = (Dish)entry.getKey();
@@ -264,16 +260,9 @@ public class Server implements ServerInterface {
 		return cost;
 	}
 
-	// TODO: Implement getIngredientStockLevels during Part 4.
 	@Override
 	public Map<Ingredient, Number> getIngredientStockLevels() {
-		Random random = new Random();
-		List<Ingredient> dishes = getIngredients();
-		HashMap<Ingredient, Number> levels = new HashMap<Ingredient, Number>();
-		for(Ingredient ingredient : ingredients) {
-			levels.put(ingredient,random.nextInt(50));
-		}
-		return levels;
+		return stockManager.getIngredientStockLevels();
 	}
 
 	@Override

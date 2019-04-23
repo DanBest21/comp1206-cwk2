@@ -145,9 +145,12 @@ public class Client implements ClientInterface
 	{
 		float cost = 0;
 
+		// Go through each Dish in the user's basket.
 		for (Map.Entry entry : user.getBasket().entrySet())
 		{
 			Dish dish = (Dish)entry.getKey();
+
+			// Add the current cost to the Dish price times by the quantity of dishes.
 			cost = cost + (dish.getPrice().floatValue() * (int)entry.getValue());
 		}
 
@@ -212,9 +215,12 @@ public class Client implements ClientInterface
 	{
 		double cost = 0.0;
 
+		// Go through each Dish in the Order.
 		for (Map.Entry entry : order.getOrderedDishes().entrySet())
 		{
 			Dish dish = (Dish)entry.getKey();
+
+			// Add the current cost to the Dish price times by the quantity of dishes.
 			cost = cost + (dish.getPrice().doubleValue() * (int)entry.getValue());
 		}
 
