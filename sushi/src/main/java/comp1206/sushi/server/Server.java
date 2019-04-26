@@ -2,6 +2,7 @@ package comp1206.sushi.server;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -14,16 +15,17 @@ public class Server implements ServerInterface {
 
     private static final Logger logger = LogManager.getLogger("Server");
 	
-	public Restaurant restaurant;
-	public ArrayList<Dish> dishes = new ArrayList<Dish>();
-	public ArrayList<Drone> drones = new ArrayList<Drone>();
-	public ArrayList<Ingredient> ingredients = new ArrayList<Ingredient>();
-	public ArrayList<Order> orders = new ArrayList<Order>();
-	public ArrayList<Staff> staff = new ArrayList<Staff>();
-	public ArrayList<Supplier> suppliers = new ArrayList<Supplier>();
-	public ArrayList<User> users = new ArrayList<User>();
-	public ArrayList<Postcode> postcodes = new ArrayList<Postcode>();
-	public StockManager stockManager = new StockManager(dishes, ingredients);
+	private Restaurant restaurant;
+	private ArrayList<Dish> dishes = new ArrayList<Dish>();
+	private ArrayList<Drone> drones = new ArrayList<Drone>();
+	private ArrayList<Ingredient> ingredients = new ArrayList<Ingredient>();
+	private ArrayList<Order> orders = new ArrayList<Order>();
+	private ArrayList<Staff> staff = new ArrayList<Staff>();
+	private Map<Staff, Thread> staffThreads = new HashMap<>();
+	private ArrayList<Supplier> suppliers = new ArrayList<Supplier>();
+	private ArrayList<User> users = new ArrayList<User>();
+	private ArrayList<Postcode> postcodes = new ArrayList<Postcode>();
+	private Stock stock = new Stock();
 	private ArrayList<UpdateListener> listeners = new ArrayList<UpdateListener>();
 	
 	public Server() {
@@ -64,8 +66,6 @@ public class Server implements ServerInterface {
 		addDrone(1);
 		addDrone(2);
 		addDrone(3);
-
-		stockManager.start();
 	}
 	
 	@Override
@@ -77,6 +77,7 @@ public class Server implements ServerInterface {
 	public Dish addDish(String name, String description, Number price, Number restockThreshold, Number restockAmount) {
 		Dish newDish = new Dish(name,description,price,restockThreshold,restockAmount);
 		this.dishes.add(newDish);
+		stock.setStock(newDish, 0);
 		this.notifyUpdate();
 		return newDish;
 	}
@@ -86,36 +87,36 @@ public class Server implements ServerInterface {
 		if (!this.dishes.contains(dish))
 			throw new UnableToDeleteException("Unable to delete Dish \"" + dish.getName() + "\" as it does not exist on the server.");
 		this.dishes.remove(dish);
-		stockManager.removeDish(dish);
+		stock.removeDish(dish);
 		this.notifyUpdate();
 	}
 
 	@Override
 	public Map<Dish, Number> getDishStockLevels() {
-		return stockManager.getDishStockLevels();
+		return stock.getDishStockLevels();
 	}
 	
 	@Override
 	public void setRestockingIngredientsEnabled(boolean enabled) {
-		stockManager.setRestockingIngredientsEnabled(enabled);
+		stock.setRestockingIngredientsEnabled(enabled);
 		this.notifyUpdate();
 	}
 
 	@Override
 	public void setRestockingDishesEnabled(boolean enabled) {
-		stockManager.setRestockingDishesEnabled(enabled);
+		stock.setRestockingDishesEnabled(enabled);
 		this.notifyUpdate();
 	}
 
 	@Override
 	public void setStock(Dish dish, Number stock) {
-		stockManager.setStock(dish, stock);
+		this.stock.setStock(dish, stock);
 		this.notifyUpdate();
 	}
 
 	@Override
 	public void setStock(Ingredient ingredient, Number stock) {
-		stockManager.setStock(ingredient, stock);
+		this.stock.setStock(ingredient, stock);
 		this.notifyUpdate();
 	}
 
@@ -129,6 +130,7 @@ public class Server implements ServerInterface {
 			Number restockThreshold, Number restockAmount, Number weight) {
 		Ingredient ingredient = new Ingredient(name,unit,supplier,restockThreshold,restockAmount,weight);
 		this.ingredients.add(ingredient);
+		stock.setStock(ingredient, 0);
 		this.notifyUpdate();
 		return ingredient;
 	}
@@ -138,7 +140,7 @@ public class Server implements ServerInterface {
 		if (!this.ingredients.contains(ingredient))
 			throw new UnableToDeleteException("Unable to delete Ingredient \"" + ingredient.getName() + "\" as it does not exist on the server.");
 		this.ingredients.remove(ingredient);
-		stockManager.removeIngredient(ingredient);
+		stock.removeIngredient(ingredient);
 		this.notifyUpdate();
 	}
 
@@ -192,8 +194,14 @@ public class Server implements ServerInterface {
 
 	@Override
 	public Staff addStaff(String name) {
-		Staff staff = new Staff(name);
+		Staff staff = new Staff(name, this);
 		this.staff.add(staff);
+
+        Thread thread = new Thread(staff);
+        thread.setName(staff.getName());
+        thread.start();
+        this.staffThreads.put(staff, thread);
+
 		this.notifyUpdate();
 		return staff;
 	}
@@ -203,6 +211,8 @@ public class Server implements ServerInterface {
 		if (!this.staff.contains(staff))
 			throw new UnableToDeleteException("Unable to delete Staff \"" + staff.getName() + "\" as it does not exist on the server.");
 		this.staff.remove(staff);
+		this.staffThreads.get(staff).interrupt();
+		this.staffThreads.remove(staff);
 		this.notifyUpdate();
 	}
 
@@ -262,7 +272,7 @@ public class Server implements ServerInterface {
 
 	@Override
 	public Map<Ingredient, Number> getIngredientStockLevels() {
-		return stockManager.getIngredientStockLevels();
+		return stock.getIngredientStockLevels();
 	}
 
 	@Override
@@ -478,6 +488,16 @@ public class Server implements ServerInterface {
 		users.clear();
 		postcodes.clear();
 
+		for (Map.Entry entry : staffThreads.entrySet())
+        {
+            Thread thread = (Thread)entry.getValue();
+            thread.interrupt();
+        }
+
+		staffThreads.clear();
+
 		this.notifyUpdate();
 	}
+
+	public Stock getStock() { return stock; }
 }

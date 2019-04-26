@@ -112,14 +112,17 @@ public class Configuration
     {
         for (String ingredient : ingredients.split(","))
         {
-            int quantity = Integer.parseInt(ingredient.split("/*")[0].trim());
+            int quantity = Integer.parseInt(ingredient.split("\\*")[0].trim());
 
-            String name = ingredient.split("/*")[1].trim();
+            String name = ingredient.split("\\*")[1].trim();
 
             for (Ingredient i : server.getIngredients())
             {
                 if (i.getName().equals(name))
+                {
                     server.addIngredientToDish(dish, i, quantity);
+                    break;
+                }
             }
         }
     }
@@ -129,14 +132,17 @@ public class Configuration
     {
         for (String dish : dishes.split(","))
         {
-            int quantity = Integer.parseInt(dish.split("/*")[0].trim());
+            int quantity = Integer.parseInt(dish.split("\\*")[0].trim());
 
-            String name = dish.split("/*")[1].trim();
+            String name = dish.split("\\*")[1].trim();
 
             for (Dish d : server.getDishes())
             {
                 if (d.getName().equals(name))
+                {
                     server.addDishToOrder(order, d, quantity);
+                    break;
+                }
             }
         }
     }

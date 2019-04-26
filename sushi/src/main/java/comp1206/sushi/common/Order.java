@@ -2,6 +2,7 @@ package comp1206.sushi.common;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
@@ -10,7 +11,7 @@ import comp1206.sushi.common.Order;
 public class Order extends Model {
 
 	private String status;
-	private Map<Dish, Number> orderedDishes;
+	private Map<Dish, Number> orderedDishes = new HashMap<>();
 	private boolean isComplete = false;
 	private boolean isCancelled = false;
 	
