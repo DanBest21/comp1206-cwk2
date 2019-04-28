@@ -16,17 +16,17 @@ public class Server implements ServerInterface {
     private static final Logger logger = LogManager.getLogger("Server");
 	
 	private Restaurant restaurant;
-	private ArrayList<Dish> dishes = new ArrayList<Dish>();
-	private ArrayList<Drone> drones = new ArrayList<Drone>();
-	private ArrayList<Ingredient> ingredients = new ArrayList<Ingredient>();
-	private ArrayList<Order> orders = new ArrayList<Order>();
-	private ArrayList<Staff> staff = new ArrayList<Staff>();
-	private Map<Staff, Thread> staffThreads = new HashMap<>();
-	private ArrayList<Supplier> suppliers = new ArrayList<Supplier>();
-	private ArrayList<User> users = new ArrayList<User>();
-	private ArrayList<Postcode> postcodes = new ArrayList<Postcode>();
-	private Stock stock = new Stock();
-	private ArrayList<UpdateListener> listeners = new ArrayList<UpdateListener>();
+	private final ArrayList<Dish> dishes = new ArrayList<Dish>();
+	private final ArrayList<Drone> drones = new ArrayList<Drone>();
+	private final ArrayList<Ingredient> ingredients = new ArrayList<Ingredient>();
+	private final ArrayList<Order> orders = new ArrayList<Order>();
+	private final ArrayList<Staff> staff = new ArrayList<Staff>();
+	private final Map<Staff, Thread> staffThreads = new HashMap<>();
+	private final ArrayList<Supplier> suppliers = new ArrayList<Supplier>();
+	private final ArrayList<User> users = new ArrayList<User>();
+	private final ArrayList<Postcode> postcodes = new ArrayList<Postcode>();
+	private final Stock stock = new Stock();
+	private final ArrayList<UpdateListener> listeners = new ArrayList<UpdateListener>();
 	
 	public Server() {
         logger.info("Starting up server...");
