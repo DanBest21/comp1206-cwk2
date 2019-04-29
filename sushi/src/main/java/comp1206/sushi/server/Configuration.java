@@ -79,6 +79,7 @@ public class Configuration
             case "ORDER":
                 Order order = server.addOrder(getUser(parameters[0]));
                 addDishesToOrder(order, parameters[1]);
+                order.setStatus("Preparing");
                 break;
 
             case "POSTCODE":

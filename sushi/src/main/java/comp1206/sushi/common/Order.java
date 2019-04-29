@@ -1,5 +1,6 @@
 package comp1206.sushi.common;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -8,8 +9,9 @@ import java.util.Random;
 
 import comp1206.sushi.common.Order;
 
-public class Order extends Model {
+public class Order extends Model implements Serializable {
 
+	private String name;
 	private String status;
 	private Map<Dish, Number> orderedDishes = new HashMap<>();
 	private boolean isComplete = false;

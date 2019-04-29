@@ -58,6 +58,17 @@
 	</build>
 
 	<dependencies>
+		<!-- *******************************************************************************************************
+    // * Title: Org.JSON library
+    // * Author: Douglas Crockford
+    // * Date: August 2018
+    // * Availability: https://mvnrepository.com/artifact/org.json/json/20180813
+    // ********************************************************************************************************/ -->
+		<dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20180813</version>
+		</dependency>
 		<dependency>
 			<groupId>org.apache.logging.log4j</groupId>
 			<artifactId>log4j-api</artifactId>

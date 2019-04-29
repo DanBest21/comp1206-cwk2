@@ -1,5 +1,6 @@
 package comp1206.sushi.server;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -10,7 +11,9 @@ import java.util.Map.Entry;
 import comp1206.sushi.common.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
- 
+
+import javax.swing.*;
+
 public class Server implements ServerInterface {
 
     private static final Logger logger = LogManager.getLogger("Server");
@@ -26,46 +29,37 @@ public class Server implements ServerInterface {
 	private final ArrayList<User> users = new ArrayList<User>();
 	private final ArrayList<Postcode> postcodes = new ArrayList<Postcode>();
 	private final Stock stock = new Stock();
-	private final ArrayList<UpdateListener> listeners = new ArrayList<UpdateListener>();
+	private final ArrayList<UpdateListener> listeners = new ArrayList<>();
+	private ServerComms comms = new ServerComms(this);
 	
 	public Server() {
         logger.info("Starting up server...");
-		
-		Postcode restaurantPostcode = addPostcode("SO17 1BJ");
-		restaurant = setRestaurant("Mock Restaurant", restaurantPostcode);
-		
-		Postcode postcode1 = addPostcode("SO17 1TJ");
-		Postcode postcode2 = addPostcode("SO17 1BX");
-		Postcode postcode3 = addPostcode("SO17 2NJ");
-		Postcode postcode4 = addPostcode("SO17 1TW");
-		Postcode postcode5 = addPostcode("SO17 2LB");
-		
-		Supplier supplier1 = addSupplier("Supplier 1", postcode1);
-		Supplier supplier2 = addSupplier("Supplier 2", postcode2);
-		Supplier supplier3 = addSupplier("Supplier 3", postcode3);
-		
-		Ingredient ingredient1 = addIngredient("Ingredient 1","grams", supplier1,1,5,1);
-		Ingredient ingredient2 = addIngredient("Ingredient 2","grams", supplier2,1,5,1);
-		Ingredient ingredient3 = addIngredient("Ingredient 3","grams", supplier3,1,5,1);
-		
-		Dish dish1 = addDish("Dish 1","Dish 1",1,1,10);
-		Dish dish2 = addDish("Dish 2","Dish 2",2,1,10);
-		Dish dish3 = addDish("Dish 3","Dish 3",3,1,10);
 
-		addIngredientToDish(dish1, ingredient1,1);
-		addIngredientToDish(dish1, ingredient2,2);
-		addIngredientToDish(dish2, ingredient2,3);
-		addIngredientToDish(dish2, ingredient3,1);
-		addIngredientToDish(dish3, ingredient1,2);
-		addIngredientToDish(dish3, ingredient3,1);
-		
-		addStaff("Staff 1");
-		addStaff("Staff 2");
-		addStaff("Staff 3");
-		
-		addDrone(1);
-		addDrone(2);
-		addDrone(3);
+        JDialog configurationDialog = new JDialog();
+		JFileChooser chooser = new JFileChooser();
+		chooser.setDialogTitle("Load Configuration File");
+		int result = chooser.showOpenDialog(configurationDialog);
+
+		if (result == JFileChooser.APPROVE_OPTION)
+		{
+			File configFile = chooser.getSelectedFile();
+			try
+			{
+				loadConfiguration(configFile.getAbsolutePath());
+			}
+			catch (FileNotFoundException ex)
+			{
+				ex.printStackTrace();
+			}
+		}
+		else
+		{
+			System.exit(0);
+		}
+
+		configurationDialog.dispose();
+
+		comms.start();
 	}
 	
 	@Override
@@ -78,6 +72,7 @@ public class Server implements ServerInterface {
 		Dish newDish = new Dish(name,description,price,restockThreshold,restockAmount);
 		this.dishes.add(newDish);
 		stock.setStock(newDish, 0);
+		comms.sendMessage("ADD DISH", newDish);
 		this.notifyUpdate();
 		return newDish;
 	}
@@ -88,6 +83,7 @@ public class Server implements ServerInterface {
 			throw new UnableToDeleteException("Unable to delete Dish \"" + dish.getName() + "\" as it does not exist on the server.");
 		this.dishes.remove(dish);
 		stock.removeDish(dish);
+		comms.sendMessage("REMOVE DISH", dish);
 		this.notifyUpdate();
 	}
 
@@ -250,7 +246,10 @@ public class Server implements ServerInterface {
 	public void removeOrder(Order order) throws UnableToDeleteException {
 		if (!this.orders.contains(order))
 			throw new UnableToDeleteException("Unable to delete Order \"" + order.getName() + "\" as it does not exist on the server.");
+		if (!order.isComplete())
+			throw new UnableToDeleteException("Unable to delete Order \"" + order.getName() + "\" as it has not yet been completed.");
 		this.orders.remove(order);
+		comms.sendMessage("COMPLETE ORDER", order);
 		this.notifyUpdate();
 	}
 
@@ -319,8 +318,13 @@ public class Server implements ServerInterface {
 
 	@Override
 	public Postcode addPostcode(String code) {
-		Postcode postcode = new Postcode(code);
+        Postcode postcode;
+	    if (restaurant == null)
+	        postcode = new Postcode(code);
+	    else
+		    postcode = new Postcode(code, restaurant);
 		this.postcodes.add(postcode);
+		comms.sendMessage("ADD POSTCODE", postcode);
 		this.notifyUpdate();
 		return postcode;
 	}
@@ -330,6 +334,7 @@ public class Server implements ServerInterface {
 		if (!this.postcodes.contains(postcode))
 			throw new UnableToDeleteException("Unable to delete Postcode \"" + postcode.getName() + "\" as it does not exist on the server.");
 		this.postcodes.remove(postcode);
+		comms.sendMessage("REMOVE POSTCODE", postcode);
 		this.notifyUpdate();
 	}
 
@@ -372,6 +377,7 @@ public class Server implements ServerInterface {
 		for(Entry<Ingredient, Number> recipeItem : recipe.entrySet()) {
 			addIngredientToDish(dish,recipeItem.getKey(),recipeItem.getValue());
 		}
+		comms.sendMessage("EDIT DISH", dish);
 		this.notifyUpdate();
 	}
 

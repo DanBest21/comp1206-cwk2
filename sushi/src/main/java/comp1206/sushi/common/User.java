@@ -1,11 +1,12 @@
 package comp1206.sushi.common;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class User extends Model {
+public class User extends Model implements Serializable {
 	
 	private String name;
 	private String password;
