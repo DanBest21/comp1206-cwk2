@@ -9,75 +9,50 @@ public class Staff extends Model implements Runnable
 	private String name;
 	private String status;
 	private Number fatigue;
-	private final Server server;
 	private final Stock stock;
+	private final List<Dish> dishes;
 	private static Map<Dish, Number> restocksInProgress = new HashMap<>();
 	private static boolean readyToCheck = true;
 
 	private static final int UPPER_PREP_TIME = 60;
 	private static final int LOWER_PREP_TIME = 20;
 	
-	public Staff(String name, Server server)
+	public Staff(String name, Stock stock, List<Dish> dishes)
 	{
 		this.setName(name);
 		this.setFatigue(0);
-		this.server = server;
-		stock = server.getStock();
+		this.stock = stock;
+		this.dishes = dishes;
 	}
 
 	// run(): Primary method called by the Thread when started.
 	public void run()
 	{
-		try
+		while (true)
 		{
-			while (true)
+			setStatus("Idle");
+
+			// Stop the thread if it's been interrupted.
+			if (Thread.currentThread().isInterrupted())
+				return;
+
+			// If the restock dishes setting is enabled:
+			if (stock.getRestockingDishesEnabled())
 			{
-				setStatus("Idle");
-
-				// Stop the thread if it's been interrupted.
-				if (Thread.currentThread().isInterrupted())
-					return;
-
-				// If the restock dishes setting is enabled:
-				if (stock.getRestockingDishesEnabled())
+				// Try to restock dishes.
+				try
 				{
-					// Try to restock dishes.
-					try
-					{
-						restockDishes();
-					}
-					catch (ConcurrentModificationException ex)
-					{
-						// Stop the thread if it's been interrupted.
-						if (Thread.currentThread().isInterrupted())
-						{
-							return;
-						}
-						// Otherwise wait a second and carry on since something will have just changed on the server.
-						else
-						{
-							Thread.sleep(1000);
-						}
-					}
-					catch (NoSuchElementException ex)
-					{
-						// Stop the thread if it's been interrupted.
-						if (Thread.currentThread().isInterrupted())
-						{
-							return;
-						}
-						else
-						{
-							ex.printStackTrace();
-						}
-					}
+					restockDishes();
+				}
+				catch (ConcurrentModificationException ex)
+				{
+					// Do nothing since another thread is working that will fix this issue.
+				}
+				catch (NoSuchElementException ex)
+				{
+					ex.printStackTrace();
 				}
 			}
-		}
-		// Catch and print any unexpected InterruptException.
-		catch (InterruptedException ex)
-		{
-			ex.printStackTrace();
 		}
 	}
 
@@ -115,7 +90,7 @@ public class Staff extends Model implements Runnable
 	// restockDishes(): Function that loops through each dish and checks if it can be prepared, and then prepares it if it can.
 	private void restockDishes() throws ConcurrentModificationException
 	{
-		for (Dish dish : server.getDishes())
+		for (Dish dish : dishes)
 		{
 			// Add the key if it's not already in the restocksInProgress map.
 			if (!restocksInProgress.containsKey(dish))
@@ -224,11 +199,11 @@ public class Staff extends Model implements Runnable
 			Number quantity = (Number)entry.getValue();
 
 			// Set the stock of the ingredient to the current stock minus the number of that ingredient required for the dish times the amount of dishes that are created.
-			server.setStock(ingredient, stock.getStock(ingredient).intValue() - (quantity.intValue() * dish.getRestockAmount().intValue()));
+			stock.setStock(ingredient, stock.getStock(ingredient).intValue() - (quantity.intValue() * dish.getRestockAmount().intValue()));
 		}
 
 		// Set the stock of the dish to the current stock plus the restock amount.
-		server.setStock(dish, stock.getStock(dish).intValue() + dish.getRestockAmount().intValue());
+		stock.setStock(dish, stock.getStock(dish).intValue() + dish.getRestockAmount().intValue());
 
 		// Subtract one from the restocksInProgress counter for this dish.
 		restocksInProgress.put(dish, restocksInProgress.get(dish).intValue() - 1);

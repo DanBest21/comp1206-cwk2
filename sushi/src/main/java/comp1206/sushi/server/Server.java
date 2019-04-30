@@ -35,29 +35,8 @@ public class Server implements ServerInterface {
 	public Server() {
         logger.info("Starting up server...");
 
-        JDialog configurationDialog = new JDialog();
-		JFileChooser chooser = new JFileChooser();
-		chooser.setDialogTitle("Load Configuration File");
-		int result = chooser.showOpenDialog(configurationDialog);
-
-		if (result == JFileChooser.APPROVE_OPTION)
-		{
-			File configFile = chooser.getSelectedFile();
-			try
-			{
-				loadConfiguration(configFile.getAbsolutePath());
-			}
-			catch (FileNotFoundException ex)
-			{
-				ex.printStackTrace();
-			}
-		}
-		else
-		{
-			System.exit(0);
-		}
-
-		configurationDialog.dispose();
+        addPostcode("SO17 1BJ");
+        restaurant = new Restaurant("Southampton Sushi", postcodes.get(0));
 
 		comms.start();
 	}
@@ -190,7 +169,7 @@ public class Server implements ServerInterface {
 
 	@Override
 	public Staff addStaff(String name) {
-		Staff staff = new Staff(name, this);
+		Staff staff = new Staff(name, stock, dishes);
 		this.staff.add(staff);
 
         Thread thread = new Thread(staff);
@@ -504,6 +483,4 @@ public class Server implements ServerInterface {
 
 		this.notifyUpdate();
 	}
-
-	public Stock getStock() { return stock; }
 }

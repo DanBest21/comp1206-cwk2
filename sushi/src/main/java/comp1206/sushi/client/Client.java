@@ -25,39 +25,6 @@ public class Client implements ClientInterface
 		comms.start();
 
 		comms.sendMessage("LOAD DATA", null);
-
-//		Postcode restaurantPostcode = new Postcode("SO17 1BJ");
-//
-//		restaurant = new Restaurant("Mock Restaurant", restaurantPostcode);
-//
-//		Postcode postcode1 = new Postcode("SO17 1TJ");
-//		Postcode postcode2 = new Postcode("SO17 1BX");
-//		Postcode postcode3 = new Postcode("SO17 2NJ");
-//		Postcode postcode4 = new Postcode("SO17 1TW");
-//		Postcode postcode5 = new Postcode("SO17 2LB");
-//
-//		postcodes.add(restaurantPostcode);
-//		postcodes.add(postcode1);
-//		postcodes.add(postcode2);
-//		postcodes.add(postcode3);
-//		postcodes.add(postcode4);
-//		postcodes.add(postcode5);
-//
-//		User user1 = new User("khadgar", "theb3stw1zard", "1 Dalaran Lane", postcode3);
-//		User user2 = new User("jaina", "daughter0fth3s3a", "56 Boralus Avenue", postcode5);
-//		User user3 = new User("azshara", "queen", "The Eternal Palace", postcode1);
-//
-//		users.add(user1);
-//		users.add(user2);
-//		users.add(user3);
-//
-//		Dish dish1 = new Dish("Dish 1","Dish 1",1,1,10);
-//		Dish dish2 = new Dish("Dish 2","Dish 2",2,1,10);
-//		Dish dish3 = new Dish("Dish 3","Dish 3",3,1,10);
-//
-//		dishes.add(dish1);
-//		dishes.add(dish2);
-//		dishes.add(dish3);
 	}
 	
 	@Override

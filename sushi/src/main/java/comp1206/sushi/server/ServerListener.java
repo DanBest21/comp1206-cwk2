@@ -25,16 +25,13 @@ public class ServerListener extends Thread
     {
         try
         {
-            synchronized (server)
+            while (true)
             {
-                while (true)
+                if (!receivingData)
                 {
-                    if (!receivingData)
-                    {
-                        receivingData = true;
-                        server.receiveMessage((String) input.readObject(), this);
-                        receivingData = false;
-                    }
+                    receivingData = true;
+                    server.receiveMessage((String) input.readObject(), this);
+                    receivingData = false;
                 }
             }
         }
