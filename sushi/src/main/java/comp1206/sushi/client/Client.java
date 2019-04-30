@@ -193,7 +193,9 @@ public class Client implements ClientInterface
 	public Order checkoutBasket(User user)
 	{
 		Order order = new Order();
-		order.setOrderedDishes(user.getBasket());
+		Map<Dish, Number> basket = new HashMap<>();
+		basket.putAll(user.getBasket());
+		order.setOrderedDishes(basket);
 		user.placeOrder(order);
 		order.setStatus("Preparing");
 		comms.sendMessage("NEW ORDER", order, user);

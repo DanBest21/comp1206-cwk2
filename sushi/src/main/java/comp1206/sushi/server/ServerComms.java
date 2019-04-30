@@ -193,27 +193,9 @@ public class ServerComms extends Thread
     private void loadData(ObjectInputStream input, ObjectOutputStream output) throws IOException, ClassNotFoundException
     {
         output.writeObject(server.getRestaurant());
-
-        String response = (String)input.readObject();
-
-        if (response.equals("OBJECT RECEIVED"))
-            output.writeObject(server.getPostcodes());
-        else
-            throw new IOException("Unexpected response from client - " + response);
-
-        response = (String)input.readObject();
-
-        if (response.equals("OBJECT RECEIVED"))
-            output.writeObject(server.getDishes());
-        else
-            throw new IOException("Unexpected response from client - " + response);
-
-        response = (String)input.readObject();
-
-        if (response.equals("OBJECT RECEIVED"))
-            output.writeObject(server.getUsers());
-        else
-            throw new IOException("Unexpected response from client - " + response);
+        output.writeObject(server.getPostcodes());
+        output.writeObject(server.getDishes());
+        output.writeObject(server.getUsers());
     }
 
     private void login(ServerListener serverListener) throws ClassNotFoundException, IOException

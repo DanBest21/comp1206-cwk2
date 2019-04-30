@@ -126,10 +126,6 @@ public class ClientComms extends Thread
                 switch (message)
                 {
                     case "NEW ORDER":
-                        Order order = (Order)model;
-                        output.writeObject(order);
-                        output.writeObject(order.getOrderedDishes());
-                        output.writeObject(user);
                     case "CANCEL ORDER":
                         output.writeObject((Order)model);
                         output.writeObject(user);
@@ -152,13 +148,10 @@ public class ClientComms extends Thread
     private void loadData() throws ClassNotFoundException, IOException
     {
         client.setRestaurant((Restaurant)input.readObject());
-        output.writeObject("OBJECT RECEIVED");
         client.getPostcodes().clear();
         client.getPostcodes().addAll((List<Postcode>)input.readObject());
-        output.writeObject("OBJECT RECEIVED");
         client.getDishes().clear();
         client.getDishes().addAll((List<Dish>)input.readObject());
-        output.writeObject("OBJECT RECEIVED");
         client.getUsers().clear();
         client.getUsers().addAll((List<User>)input.readObject());
     }
