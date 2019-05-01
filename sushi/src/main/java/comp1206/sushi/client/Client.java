@@ -165,7 +165,7 @@ public class Client implements ClientInterface
 		order.setOrderedDishes(basket);
 		user.placeOrder(order);
 		order.setStatus("Preparing");
-		comms.sendMessage("NEW ORDER", order, user);
+		comms.sendMessage("NEW ORDER", order, loggedInUser);
 		this.notifyUpdate();
 		return order;
 	}

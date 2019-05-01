@@ -92,9 +92,16 @@ public class ServerComms extends Thread
                             output.writeObject((Postcode)model);
                             break;
 
+                        case "ADD USER":
+                        case "REMOVE USER":
+                            output.writeObject((User)model);
+                            break;
+
                         default:
                             throw new IOException("Attempting to send unrecognised command - " + message);
                     }
+
+                    output.reset();
                 }
             }
             catch (IOException ex)
@@ -104,7 +111,7 @@ public class ServerComms extends Thread
         }
     }
 
-    private void sendMessage(String message, Model model, User user)
+    public void sendMessage(String message, Model model, User user)
     {
         synchronized (server)
         {
@@ -115,7 +122,7 @@ public class ServerComms extends Thread
                 for (Map.Entry entry : serverListeners.entrySet()) {
                     User loggedInUser = (User) entry.getValue();
 
-                    if (loggedInUser.equals(user)) {
+                    if (loggedInUser.getName().equals(user.getName())) {
                         ServerListener serverListener = (ServerListener) entry.getKey();
                         ObjectOutputStream output = serverListener.getOutputStream();
 
@@ -130,6 +137,8 @@ public class ServerComms extends Thread
                             default:
                                 throw new IOException("Attempting to send unrecognised command - " + message);
                         }
+
+                        output.reset();
                     }
                 }
             }
@@ -154,7 +163,7 @@ public class ServerComms extends Thread
                 switch (message)
                 {
                     case "LOAD DATA":
-                        loadData(input, output);
+                        loadData(output);
                         break;
 
                     case "LOGIN":
@@ -162,15 +171,15 @@ public class ServerComms extends Thread
                         break;
 
                     case "REGISTER USER":
-                        register(input, output);
+                        register(input);
                         break;
 
                     case "NEW ORDER":
-                        newOrder(input, output);
+                        newOrder(input);
                         break;
 
                     case "CANCEL ORDER":
-                        cancelOrder(input, output);
+                        cancelOrder(input);
                         break;
 
                     default:
@@ -190,7 +199,7 @@ public class ServerComms extends Thread
         }
     }
 
-    private void loadData(ObjectInputStream input, ObjectOutputStream output) throws IOException, ClassNotFoundException
+    private void loadData(ObjectOutputStream output) throws IOException, ClassNotFoundException
     {
         output.writeObject(server.getRestaurant());
         output.writeObject(server.getPostcodes());
@@ -204,12 +213,12 @@ public class ServerComms extends Thread
         serverListeners.put(serverListener, (User)input.readObject());
     }
 
-    private void register(ObjectInputStream input, ObjectOutputStream output) throws ClassNotFoundException, IOException
+    private void register(ObjectInputStream input) throws ClassNotFoundException, IOException
     {
         server.getUsers().add((User)input.readObject());
     }
 
-    private void newOrder(ObjectInputStream input, ObjectOutputStream output) throws ClassNotFoundException, IOException
+    private void newOrder(ObjectInputStream input) throws ClassNotFoundException, IOException
     {
         Order order = (Order)input.readObject();
         server.getOrders().add(order);
@@ -225,20 +234,31 @@ public class ServerComms extends Thread
         }
     }
 
-    private void cancelOrder(ObjectInputStream input, ObjectOutputStream output) throws ClassNotFoundException, IOException
+    private void cancelOrder(ObjectInputStream input) throws ClassNotFoundException, IOException
     {
         Order order = (Order)input.readObject();
-        server.getOrders().get(server.getOrders().indexOf(order)).cancelOrder();
+        Order serverOrder = null;
+
+        for (Order o : server.getOrders())
+        {
+            if (o.getName().equals(order.getName()))
+            {
+                serverOrder = o;
+            }
+        }
+
+        server.getOrders().remove(serverOrder);
+        server.getOrders().add(order);
+
         User user = (User)input.readObject();
 
         for (User u : server.getUsers())
         {
             if (u.getName().equals(user.getName()))
             {
-                u.getOrders().forEach(o -> {
-                    if (o.getName().equals(order.getName()))
-                        o.cancelOrder();
-                });
+                u.getOrders().remove(serverOrder);
+                u.getOrders().add(order);
+                break;
             }
         }
     }

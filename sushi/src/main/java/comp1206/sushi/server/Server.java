@@ -225,10 +225,14 @@ public class Server implements ServerInterface {
 	public void removeOrder(Order order) throws UnableToDeleteException {
 		if (!this.orders.contains(order))
 			throw new UnableToDeleteException("Unable to delete Order \"" + order.getName() + "\" as it does not exist on the server.");
-		if (!order.isComplete())
-			throw new UnableToDeleteException("Unable to delete Order \"" + order.getName() + "\" as it has not yet been completed.");
+		if (!order.isComplete() && !order.isCancelled())
+			throw new UnableToDeleteException("Unable to delete Order \"" + order.getName() + "\" as it has not yet been completed or cancelled.");
 		this.orders.remove(order);
-		comms.sendMessage("COMPLETE ORDER", order);
+		users.forEach(u -> {
+			if (u.getOrders().contains(order))
+				u.getOrders().remove(order);
+				comms.sendMessage("COMPLETE ORDER", order, u);
+				});
 		this.notifyUpdate();
 	}
 
@@ -321,6 +325,7 @@ public class Server implements ServerInterface {
 	{
 		User user = new User(username, password, address, postcode);
 		this.users.add(user);
+		comms.sendMessage("ADD USER", user);
 		this.notifyUpdate();
 		return user;
 	}
@@ -335,6 +340,7 @@ public class Server implements ServerInterface {
 		if (!this.users.contains(user))
 			throw new UnableToDeleteException("Unable to delete User \"" + user.getName() + "\" as it does not exist on the server.");
 		this.users.remove(user);
+		comms.sendMessage("REMOVE USER", user);
 		this.notifyUpdate();
 	}
 

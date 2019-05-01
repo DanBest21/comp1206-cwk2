@@ -4,6 +4,7 @@ import comp1206.sushi.common.*;
 
 import java.io.*;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.List;
 
 public class ClientComms extends Thread
@@ -39,7 +40,7 @@ public class ClientComms extends Thread
     {
         try
         {
-            while (true)
+            while (!Thread.currentThread().isInterrupted())
             {
                 synchronized (client)
                 {
@@ -69,6 +70,9 @@ public class ClientComms extends Thread
             {
                 ex.printStackTrace();
             }
+
+            System.out.println("Connection to server lost - terminating client application.");
+            System.exit(1);
         }
     }
 
@@ -97,6 +101,8 @@ public class ClientComms extends Thread
                     default:
                         throw new IOException("Attempting to send unrecognised command - " + message);
                 }
+
+                output.reset();
             }
             catch (ClassNotFoundException ex)
             {
@@ -134,6 +140,8 @@ public class ClientComms extends Thread
                     default:
                         throw new IOException("Attempting to send unrecognised command - " + message);
                 }
+
+                output.reset();
             }
             catch (IOException ex)
             {
@@ -189,16 +197,35 @@ public class ClientComms extends Thread
                     removePostcode();
                     break;
 
+                case "ADD USER":
+                    addUser();
+                    break;
+
+                case "REMOVE USER":
+                    removeUser();
+                    break;
+
                 case "CHANGE ORDER STATUS":
                     updateOrder();
                     break;
 
                 case "COMPLETE ORDER":
-                    completeOrder();
+                    removeOrder();
                     break;
 
                 default:
                     throw new IOException("Unrecognised message received - " + message);
+            }
+        }
+        catch (SocketException ex)
+        {
+            if (ex.getMessage().contains("reset"))
+            {
+                interrupt();
+            }
+            else
+            {
+                ex.printStackTrace();
             }
         }
         catch (ClassNotFoundException ex)
@@ -221,15 +248,25 @@ public class ClientComms extends Thread
 
     private void editDish() throws IOException, ClassNotFoundException
     {
-        Dish dish = (Dish)input.readObject();
-
-        client.getDishes().remove(dish);
+        Dish dish = removeDish();
         client.getDishes().add(dish);
     }
 
-    private void removeDish() throws IOException, ClassNotFoundException
+    private Dish removeDish() throws IOException, ClassNotFoundException
     {
-        client.getDishes().remove((Dish)input.readObject());
+        Dish dish = (Dish)input.readObject();
+        Dish clientDish = null;
+
+        for (Dish d : client.getDishes())
+        {
+            if (d.getName().equals(dish.getName()))
+            {
+                clientDish = d;
+            }
+        }
+
+        client.getDishes().remove(clientDish);
+        return dish;
     }
 
     private void addPostcode() throws IOException, ClassNotFoundException
@@ -239,29 +276,70 @@ public class ClientComms extends Thread
 
     private void editPostcode() throws IOException, ClassNotFoundException
     {
-        Postcode postcode = (Postcode)input.readObject();
-
-        client.getPostcodes().remove(postcode);
+        Postcode postcode = removePostcode();
         client.getPostcodes().add(postcode);
     }
 
-    private void removePostcode() throws IOException, ClassNotFoundException
+    private Postcode removePostcode() throws IOException, ClassNotFoundException
     {
-        client.getPostcodes().remove((Postcode)input.readObject());
+        Postcode postcode = (Postcode)input.readObject();
+        Postcode clientPostcode = null;
+
+        for (Postcode p : client.getPostcodes())
+        {
+            if (p.getName().equals(postcode.getName()))
+            {
+                clientPostcode = p;
+            }
+        }
+
+        client.getPostcodes().remove(clientPostcode);
+        return postcode;
+    }
+
+    private void addUser() throws IOException, ClassNotFoundException
+    {
+        client.getUsers().add((User)input.readObject());
+    }
+
+    private void removeUser() throws IOException, ClassNotFoundException
+    {
+        User user = (User)input.readObject();
+        User clientUser = null;
+
+        for (User u : client.getUsers())
+        {
+            if (u.getName().equals(user.getName()))
+            {
+                clientUser = u;
+            }
+        }
+
+        client.getUsers().remove(clientUser);
     }
 
     private void updateOrder() throws IOException, ClassNotFoundException
     {
-        Order order = (Order)input.readObject();
-
-        client.getOrders(client.getLoggedInUser()).remove(order);
+        Order order = removeOrder();
         client.getOrders(client.getLoggedInUser()).add(order);
     }
 
-    private void completeOrder() throws IOException, ClassNotFoundException
+    private Order removeOrder() throws IOException, ClassNotFoundException
     {
         Order order = (Order)input.readObject();
+        Order clientOrder = null;
 
-        client.getOrders(client.getLoggedInUser()).remove(order);
+        for (Order o : client.getOrders(client.getLoggedInUser()))
+        {
+            if (o.getName().equals(order.getName()))
+            {
+                clientOrder = o;
+                break;
+            }
+        }
+
+        client.getOrders(client.getLoggedInUser()).remove(clientOrder);
+
+        return order;
     }
 }

@@ -47,9 +47,17 @@ public class Order extends Model implements Serializable {
 
 	public boolean isComplete() { return isComplete; }
 
-	public void completeOrder() { isComplete = true; }
+	public void completeOrder()
+	{
+		isComplete = true;
+		setStatus("Completed");
+	}
 
 	public boolean isCancelled() { return isCancelled; }
 
-	public void cancelOrder() { isCancelled = true; }
+	public void cancelOrder()
+	{
+		isCancelled = true;
+		setStatus("Cancelled");
+	}
 }

@@ -41,7 +41,7 @@ public class ServerListener extends Thread
         }
         catch (SocketException ex)
         {
-            // This likely means the thread has been cancelled.
+            // This likely means the thread has been cancelled, so do nothing and let the finally handle removing the listener.
         }
         catch (IOException ex)
         {

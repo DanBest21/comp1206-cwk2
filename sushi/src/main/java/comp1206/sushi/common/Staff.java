@@ -1,7 +1,5 @@
 package comp1206.sushi.common;
 
-import comp1206.sushi.server.Server;
-
 import java.util.*;
 
 public class Staff extends Model implements Runnable
@@ -28,13 +26,10 @@ public class Staff extends Model implements Runnable
 	// run(): Primary method called by the Thread when started.
 	public void run()
 	{
-		while (true)
+		// Stop the thread if it's been interrupted.
+		while (!Thread.currentThread().isInterrupted())
 		{
 			setStatus("Idle");
-
-			// Stop the thread if it's been interrupted.
-			if (Thread.currentThread().isInterrupted())
-				return;
 
 			// If the restock dishes setting is enabled:
 			if (stock.getRestockingDishesEnabled())
