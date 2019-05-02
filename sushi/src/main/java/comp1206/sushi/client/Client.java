@@ -58,6 +58,7 @@ public class Client implements ClientInterface
 		// If it does not, create a new user and return it.
 		User user = new User(username, password, address, postcode);
 		this.users.add(user);
+		loggedInUser = user;
 		comms.sendMessage("REGISTER USER", user);
 		return user;
 	}
@@ -215,6 +216,8 @@ public class Client implements ClientInterface
 	@Override
 	public void cancelOrder(Order order)
 	{
+		if (order.isOutForDelivery() || order.isComplete())
+			System.err.println("Cannot cancel order " + order.getName() + " as it is already out for deliver or is complete.y");
 		order.cancelOrder();
 		comms.sendMessage("CANCEL ORDER", order, loggedInUser);
 		this.notifyUpdate();

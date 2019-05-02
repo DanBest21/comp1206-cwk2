@@ -21,6 +21,7 @@ public class Server implements ServerInterface {
 	private Restaurant restaurant;
 	private final ArrayList<Dish> dishes = new ArrayList<Dish>();
 	private final ArrayList<Drone> drones = new ArrayList<Drone>();
+	private final Map<Drone, Thread> droneThreads = new HashMap<>();
 	private final ArrayList<Ingredient> ingredients = new ArrayList<Ingredient>();
 	private final ArrayList<Order> orders = new ArrayList<Order>();
 	private final ArrayList<Staff> staff = new ArrayList<Staff>();
@@ -148,8 +149,14 @@ public class Server implements ServerInterface {
 
 	@Override
 	public Drone addDrone(Number speed) {
-		Drone drone = new Drone(speed);
+		Drone drone = new Drone(speed, stock, comms, ingredients, orders, users, restaurant);
 		this.drones.add(drone);
+
+		Thread thread = new Thread(drone);
+		thread.setName(drone.getName());
+		thread.start();
+		this.droneThreads.put(drone, thread);
+
 		this.notifyUpdate();
 		return drone;
 	}
@@ -158,6 +165,8 @@ public class Server implements ServerInterface {
 	public void removeDrone(Drone drone) throws UnableToDeleteException {
 		if (!this.drones.contains(drone))
 			throw new UnableToDeleteException("Unable to delete Drone \"" + drone.getName() + "\" as it does not exist on the server.");
+		this.droneThreads.get(drone).interrupt();
+		this.droneThreads.remove(drone);
 		this.drones.remove(drone);
 		this.notifyUpdate();
 	}
@@ -185,9 +194,9 @@ public class Server implements ServerInterface {
 	public void removeStaff(Staff staff) throws UnableToDeleteException {
 		if (!this.staff.contains(staff))
 			throw new UnableToDeleteException("Unable to delete Staff \"" + staff.getName() + "\" as it does not exist on the server.");
-		this.staff.remove(staff);
 		this.staffThreads.get(staff).interrupt();
 		this.staffThreads.remove(staff);
+		this.staff.remove(staff);
 		this.notifyUpdate();
 	}
 
@@ -479,14 +488,19 @@ public class Server implements ServerInterface {
 		users.clear();
 		postcodes.clear();
 
+		this.notifyUpdate();
+	}
+
+	private void interruptThreads()
+	{
 		for (Map.Entry entry : staffThreads.entrySet())
-        {
-            Thread thread = (Thread)entry.getValue();
-            thread.interrupt();
-        }
+		{
+			Thread thread = (Thread)entry.getValue();
+			thread.interrupt();
+		}
 
 		staffThreads.clear();
 
-		this.notifyUpdate();
+
 	}
 }

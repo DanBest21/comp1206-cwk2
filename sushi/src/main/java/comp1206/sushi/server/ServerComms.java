@@ -190,7 +190,7 @@ public class ServerComms extends Thread
                         break;
 
                     case "REGISTER USER":
-                        register(input);
+                        register(input, serverListener);
                         break;
 
                     case "NEW ORDER":
@@ -235,9 +235,11 @@ public class ServerComms extends Thread
     }
 
     // register(ObjectInputStream): Add the passed User object to the list of users on the server.
-    private void register(ObjectInputStream input) throws ClassNotFoundException, IOException
+    private void register(ObjectInputStream input, ServerListener serverListener) throws ClassNotFoundException, IOException
     {
-        server.getUsers().add((User)input.readObject());
+        User user = (User)input.readObject();
+        server.getUsers().add(user);
+        serverListeners.put(serverListener, user);
     }
 
     // newOrder(ObjectInputStream): Add the passed Order object to the list of orders on the server, and associate the order to the logged in user in the list of users.

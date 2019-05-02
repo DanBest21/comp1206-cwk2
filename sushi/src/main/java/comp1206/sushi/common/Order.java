@@ -16,6 +16,7 @@ public class Order extends Model implements Serializable {
 	private Map<Dish, Number> orderedDishes = new HashMap<>();
 	private boolean isComplete = false;
 	private boolean isCancelled = false;
+	private boolean isOutForDelivery = false;
 	
 	public Order() {
 		DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/YYYY HH:mm:ss");  
@@ -49,6 +50,7 @@ public class Order extends Model implements Serializable {
 
 	public void completeOrder()
 	{
+		isOutForDelivery = false;
 		isComplete = true;
 		setStatus("Completed");
 	}
@@ -60,4 +62,8 @@ public class Order extends Model implements Serializable {
 		isCancelled = true;
 		setStatus("Cancelled");
 	}
+
+	public void deliverOrder() { isOutForDelivery = true; }
+
+	public boolean isOutForDelivery() { return isOutForDelivery; }
 }
