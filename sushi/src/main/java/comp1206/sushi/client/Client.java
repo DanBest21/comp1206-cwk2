@@ -106,7 +106,7 @@ public class Client implements ClientInterface
 	@Override
 	public String getDishDescription(Dish dish)
 	{
-		return dish.getName();
+		return dish.getDescription();
 	}
 
 	@Override

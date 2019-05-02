@@ -5,18 +5,19 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.SocketException;
 
+// ServerListener class: Class that monitors the socket of an individual Client connection to the comms.
 public class ServerListener extends Thread
 {
-    private final ServerComms server;
+    private final ServerComms comms;
     private final ObjectInputStream input;
     private final ObjectOutputStream output;
     private boolean receivingData = false;
 
-    public ServerListener(ServerComms server, ObjectInputStream input, ObjectOutputStream output)
+    public ServerListener(ServerComms comms, ObjectInputStream input, ObjectOutputStream output)
     {
         super();
 
-        this.server = server;
+        this.comms = comms;
         this.input = input;
         this.output = output;
     }
@@ -27,10 +28,11 @@ public class ServerListener extends Thread
         {
             while (true)
             {
+                // If data is already being received, don't call receiveMessage again yet.
                 if (!receivingData)
                 {
                     receivingData = true;
-                    server.receiveMessage((String) input.readObject(), this);
+                    comms.receiveMessage((String) input.readObject(), this);
                     receivingData = false;
                 }
             }
@@ -49,7 +51,7 @@ public class ServerListener extends Thread
         }
         finally
         {
-            server.removeServerListener(this);
+            comms.removeServerListener(this);
         }
     }
 

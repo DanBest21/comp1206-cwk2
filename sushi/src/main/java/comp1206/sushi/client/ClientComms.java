@@ -7,6 +7,7 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.util.List;
 
+// ClientComms class: Handles the client-side communication between the client and the server.
 public class ClientComms extends Thread
 {
     private static final String SERVER_ADDRESS = "localhost";
@@ -40,8 +41,10 @@ public class ClientComms extends Thread
     {
         try
         {
+            // While the thread hasn't been interrupted.
             while (!Thread.currentThread().isInterrupted())
             {
+                // Synchronise the code with the client so that the thread can be stopped whilst sending data.
                 synchronized (client)
                 {
                     while (sendingData)
@@ -57,11 +60,13 @@ public class ClientComms extends Thread
                     }
                 }
 
+                // Otherwise receive a message.
                 receiveMessage();
             }
         }
         finally
         {
+            // Always close the socket when the thread is stopped, and then exit the application.
             try
             {
                 socket.close();
@@ -76,8 +81,10 @@ public class ClientComms extends Thread
         }
     }
 
+    // sendMessage(String, Model): Sends the passed message and the model to the server.
     public void sendMessage(String message, Model model)
     {
+        // Synchronised on the client in order to stop data from being received at the same time it is sent.
         synchronized (client)
         {
             sendingData = true;
@@ -85,8 +92,10 @@ public class ClientComms extends Thread
 
             try
             {
+                // Send the message to the server.
                 output.writeObject(message);
 
+                // Send the appropriate object to the server.
                 switch (message)
                 {
                     case "LOAD DATA":
@@ -102,6 +111,7 @@ public class ClientComms extends Thread
                         throw new IOException("Attempting to send unrecognised command - " + message);
                 }
 
+                // Reset the ObjectOutputStream to ensure changes to the objects are recognised.
                 output.reset();
             }
             catch (ClassNotFoundException ex)
@@ -113,13 +123,16 @@ public class ClientComms extends Thread
                 ex.printStackTrace();
             }
 
+            // Call the notify method to begin receiving messages again.
             sendingData = false;
             client.notify();
         }
     }
 
+    // sendMessage(String, Model, User): Sends data to the server in regards to the specified User.
     public void sendMessage(String message, Model model, User user)
     {
+        // Synchronised on the client in order to stop data from being received at the same time it is sent.
         synchronized (client)
         {
             sendingData = true;
@@ -127,8 +140,10 @@ public class ClientComms extends Thread
 
             try
             {
+                // Send the message to the server.
                 output.writeObject(message);
 
+                // Send the appropriate object to the server.
                 switch (message)
                 {
                     case "NEW ORDER":
@@ -141,6 +156,7 @@ public class ClientComms extends Thread
                         throw new IOException("Attempting to send unrecognised command - " + message);
                 }
 
+                // Reset the ObjectOutputStream to ensure changes to the objects are recognised.
                 output.reset();
             }
             catch (IOException ex)
@@ -148,11 +164,13 @@ public class ClientComms extends Thread
                 ex.printStackTrace();
             }
 
+            // Call the notify method to begin receiving messages again.
             sendingData = false;
             client.notify();
         }
     }
 
+    // loadData(): Loads the initial data based on the response from the server.
     private void loadData() throws ClassNotFoundException, IOException
     {
         client.setRestaurant((Restaurant)input.readObject());
@@ -164,13 +182,16 @@ public class ClientComms extends Thread
         client.getUsers().addAll((List<User>)input.readObject());
     }
 
+    // receiveMessage(): Receives any messages from the Server.
     private void receiveMessage()
     {
         try
         {
+            // Get the message from the server.
             String message = (String)input.readObject();
             message = message.toUpperCase().trim();
 
+            // Call the correct auxiliary method based on the message from the server.
             switch (message)
             {
                 case "ADD DISH":
@@ -219,6 +240,7 @@ public class ClientComms extends Thread
         }
         catch (SocketException ex)
         {
+            // If a SocketException is found and contains the word reset, then the connection to the server has been lost and should be handled appropriately.
             if (ex.getMessage().contains("reset"))
             {
                 interrupt();
@@ -237,21 +259,25 @@ public class ClientComms extends Thread
             ex.printStackTrace();
         }
 
+        // If the client is logged in, then we can safely call the notifyUpdate() function to update the user interface.
         if (client.getLoggedInUser() != null)
             client.notifyUpdate();
     }
 
+    // addDish(): Adds the passed Dish object to the client.
     private void addDish() throws IOException, ClassNotFoundException
     {
         client.getDishes().add((Dish)input.readObject());
     }
 
+    // editDish(): Removes the passed Dish object and then adds it back to the client.
     private void editDish() throws IOException, ClassNotFoundException
     {
         Dish dish = removeDish();
         client.getDishes().add(dish);
     }
 
+    // removeDish(): Removes the passed Dish object based on it's name.
     private Dish removeDish() throws IOException, ClassNotFoundException
     {
         Dish dish = (Dish)input.readObject();
@@ -269,17 +295,20 @@ public class ClientComms extends Thread
         return dish;
     }
 
+    // addPostcode(): Adds the passed Postcode object to the client.
     private void addPostcode() throws IOException, ClassNotFoundException
     {
         client.getPostcodes().add((Postcode)input.readObject());
     }
 
+    // editPostcode(): Removes the passed Postcode object and then adds it back to the client.
     private void editPostcode() throws IOException, ClassNotFoundException
     {
         Postcode postcode = removePostcode();
         client.getPostcodes().add(postcode);
     }
 
+    // removePostcode(): Removes the passed Postcode object based on it's name.
     private Postcode removePostcode() throws IOException, ClassNotFoundException
     {
         Postcode postcode = (Postcode)input.readObject();
@@ -297,11 +326,13 @@ public class ClientComms extends Thread
         return postcode;
     }
 
+    // addUser(): Adds the passed User object to the client.
     private void addUser() throws IOException, ClassNotFoundException
     {
         client.getUsers().add((User)input.readObject());
     }
 
+    // removeUser(): Removes the passed User object based on it's name.
     private void removeUser() throws IOException, ClassNotFoundException
     {
         User user = (User)input.readObject();
@@ -318,12 +349,14 @@ public class ClientComms extends Thread
         client.getUsers().remove(clientUser);
     }
 
+    // updateOrder(): Removes the passed Order object and then adds it back to the list of orders of the logged in user.
     private void updateOrder() throws IOException, ClassNotFoundException
     {
         Order order = removeOrder();
         client.getOrders(client.getLoggedInUser()).add(order);
     }
 
+    // removeOrder(): Removes the passed Order object, based on it's name, from the list of orders of the logged in user.
     private Order removeOrder() throws IOException, ClassNotFoundException
     {
         Order order = (Order)input.readObject();
