@@ -26,7 +26,7 @@ public class Drone extends Model implements Runnable
 	private static Map<Ingredient, Number> restocksInProgress = new HashMap<>();
 	private static boolean readyToCheck = true;
 
-	private Order currentOrder = null;
+	private String currentOrder = "";
 
 	public Drone(Number speed, Stock stock, ServerComms comms, List<Ingredient> ingredients, List<Order> orders, List<User> users, Restaurant restaurant)
 	{
@@ -49,6 +49,9 @@ public class Drone extends Model implements Runnable
 	{
 		while (!Thread.currentThread().isInterrupted())
 		{
+			this.setSource(restaurant.getLocation());
+			this.setDestination(restaurant.getLocation());
+			this.setProgress(0.00);
 			setStatus("Idle");
 
 			if (stock.getRestockingIngredientsEnabled())
@@ -277,7 +280,7 @@ public class Drone extends Model implements Runnable
 	// TODO: Figure out why currentOrder is not the same object as the one found in user.getOrders().
 	private void fly(Order order, User user)
 	{
-		currentOrder = order;
+		currentOrder = order.getName();
 
 		setStatus("Delivering order " + order.getName() + " to " + user.getName());
 		setSource(restaurant.getLocation());
@@ -289,25 +292,25 @@ public class Drone extends Model implements Runnable
 			comms.sendMessage("CHANGE ORDER STATUS", order, user);
 		}
 
-		fly();
-
-		currentOrder = null;
-
-		order.setStatus("Complete");
-		order.completeOrder();
-		setStatus("Returning to " + restaurant.getName());
-		setSource(user.getPostcode());
-		setDestination(restaurant.getLocation());
-
-		synchronized (comms)
+		if (fly())
 		{
-			comms.sendMessage("CHANGE ORDER STATUS", order, user);
-		}
+			currentOrder = "";
 
-		fly();
+			order.setStatus("Complete");
+			order.completeOrder();
+			setStatus("Returning to " + restaurant.getName());
+			setSource(user.getPostcode());
+			setDestination(restaurant.getLocation());
+
+			synchronized (comms) {
+				comms.sendMessage("CHANGE ORDER STATUS", order, user);
+			}
+
+			fly();
+		}
 	}
 
-	private void fly()
+	private boolean fly()
 	{
 		Postcode source = getSource();
 		Postcode destination = getDestination();
@@ -315,19 +318,25 @@ public class Drone extends Model implements Runnable
 		double distance = Math.abs(destination.getDistance().doubleValue() - source.getDistance().doubleValue());
 		float speed = getSpeed().floatValue();
 
-		fly(distance, speed);
+		return fly(distance, speed);
 	}
 
-	private void fly(double distance, float speed)
+	private boolean fly(double distance, float speed)
 	{
 		double currentDistance = 0.0;
 
 		while (currentDistance < distance)
 		{
-			if (currentOrder != null && currentOrder.isCancelled())
+			for (Order order : orders)
 			{
-				cancelOrder(currentDistance, speed);
-				return;
+				if (currentOrder.equals(""))
+					break;
+
+				if (order.getName().equals(currentOrder) && order.isCancelled())
+				{
+					cancelOrder(currentDistance, speed);
+					return false;
+				}
 			}
 
 			currentDistance = currentDistance + speed;
@@ -345,10 +354,14 @@ public class Drone extends Model implements Runnable
 				ex.printStackTrace();
 			}
 		}
+
+		return true;
 	}
 
 	private void cancelOrder(double distance, float speed)
 	{
+		currentOrder = "";
+
 		setStatus("Order cancelled - returning to " + restaurant.getName());
 		setDestination(restaurant.getLocation());
 
