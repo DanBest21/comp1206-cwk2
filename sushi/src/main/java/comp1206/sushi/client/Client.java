@@ -216,8 +216,8 @@ public class Client implements ClientInterface
 	@Override
 	public void cancelOrder(Order order)
 	{
-		if (order.isOutForDelivery() || order.isComplete())
-			System.err.println("Cannot cancel order " + order.getName() + " as it is already out for deliver or is complete.y");
+		if (order.isComplete())
+			System.err.println("Cannot cancel order " + order.getName() + " as it is already complete.");
 		order.cancelOrder();
 		comms.sendMessage("CANCEL ORDER", order, loggedInUser);
 		this.notifyUpdate();

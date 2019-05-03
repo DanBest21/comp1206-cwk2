@@ -26,11 +26,16 @@ public class Drone extends Model implements Runnable
 	private static Map<Ingredient, Number> restocksInProgress = new HashMap<>();
 	private static boolean readyToCheck = true;
 
+	private Order currentOrder = null;
+
 	public Drone(Number speed, Stock stock, ServerComms comms, List<Ingredient> ingredients, List<Order> orders, List<User> users, Restaurant restaurant)
 	{
 		this.setSpeed(speed);
 		this.setCapacity(1);
 		this.setBattery(100);
+		this.setSource(restaurant.getLocation());
+		this.setDestination(restaurant.getLocation());
+		this.setProgress(0.00);
 
 		this.stock = stock;
 		this.comms = comms;
@@ -199,24 +204,29 @@ public class Drone extends Model implements Runnable
 
 	private void deliverOrders() throws NoSuchElementException
 	{
+		Order order = null;
+
 		synchronized (orders)
 		{
-			for (Order order : orders)
+			for (Order o : orders)
 			{
 				if (Thread.currentThread().isInterrupted())
 					return;
 
-				if (order.isComplete() || order.isCancelled())
+				if (o.isComplete() || o.isCancelled() || o.isOutForDelivery())
 					continue;
 
-				deliverOrder(order);
+				o.deliverOrder();
+				order = o;
 			}
 		}
+
+		if (order != null)
+			deliverOrder(order);
 	}
 
 	private void deliverOrder(Order order) throws NoSuchElementException
 	{
-		order.deliverOrder();
 		User user = findCustomer(order);
 
 		if (user != null)
@@ -225,9 +235,17 @@ public class Drone extends Model implements Runnable
 			throw new NoSuchElementException("User for " + order.getName() + " order could not be found.");
 	}
 
-	// TODO: Solve the synchronisation issue with loading the user from the server simultaneously.
 	private User findCustomer(Order order)
 	{
+		try
+		{
+			Thread.sleep(100);
+		}
+		catch (InterruptedException ex)
+		{
+			ex.printStackTrace();
+		}
+
 		synchronized (users)
 		{
 			for (User user : users)
@@ -256,8 +274,11 @@ public class Drone extends Model implements Runnable
 		fly();
 	}
 
+	// TODO: Figure out why currentOrder is not the same object as the one found in user.getOrders().
 	private void fly(Order order, User user)
 	{
+		currentOrder = order;
+
 		setStatus("Delivering order " + order.getName() + " to " + user.getName());
 		setSource(restaurant.getLocation());
 		setDestination(user.getPostcode());
@@ -269,6 +290,8 @@ public class Drone extends Model implements Runnable
 		}
 
 		fly();
+
+		currentOrder = null;
 
 		order.setStatus("Complete");
 		order.completeOrder();
@@ -291,13 +314,27 @@ public class Drone extends Model implements Runnable
 
 		double distance = Math.abs(destination.getDistance().doubleValue() - source.getDistance().doubleValue());
 		float speed = getSpeed().floatValue();
+
+		fly(distance, speed);
+	}
+
+	private void fly(double distance, float speed)
+	{
 		double currentDistance = 0.0;
 
 		while (currentDistance < distance)
 		{
+			if (currentOrder != null && currentOrder.isCancelled())
+			{
+				cancelOrder(currentDistance, speed);
+				return;
+			}
+
 			currentDistance = currentDistance + speed;
 
-			setProgress((currentDistance / distance) * 100);
+			double progress = (((currentDistance / distance) * 100) > 100) ? 100.0 : (currentDistance / distance) * 100;
+			progress = Double.valueOf(String.format("%.2f", progress));
+			setProgress(progress);
 
 			try
 			{
@@ -308,5 +345,13 @@ public class Drone extends Model implements Runnable
 				ex.printStackTrace();
 			}
 		}
+	}
+
+	private void cancelOrder(double distance, float speed)
+	{
+		setStatus("Order cancelled - returning to " + restaurant.getName());
+		setDestination(restaurant.getLocation());
+
+		fly(distance, speed);
 	}
 }
