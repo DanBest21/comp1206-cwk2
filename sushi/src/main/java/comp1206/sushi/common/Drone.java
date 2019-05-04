@@ -1,10 +1,12 @@
 package comp1206.sushi.common;
 
+import comp1206.sushi.server.DataPersistence;
 import comp1206.sushi.server.ServerComms;
 
+import java.io.Serializable;
 import java.util.*;
 
-public class Drone extends Model implements Runnable
+public class Drone extends Model implements Runnable, Serializable
 {
 	private Number speed;
 	private Number progress;
@@ -18,17 +20,20 @@ public class Drone extends Model implements Runnable
 	private Postcode destination;
 
 	private final Stock stock;
-	private final ServerComms comms;
+	private transient ServerComms comms;
 	private final List<Ingredient> ingredients;
 	private final List<Order> orders;
 	private final List<User> users;
 	private final Restaurant restaurant;
 	private static Map<Ingredient, Number> restocksInProgress = new HashMap<>();
 	private static boolean readyToCheck = true;
+	private transient DataPersistence dataPersistence;
 
 	private String currentOrder = "";
 
-	public Drone(Number speed, Stock stock, ServerComms comms, List<Ingredient> ingredients, List<Order> orders, List<User> users, Restaurant restaurant)
+	private static final double BATTERY_USAGE_RATE = 0.25;
+
+	public Drone(Number speed, Stock stock, ServerComms comms, List<Ingredient> ingredients, List<Order> orders, List<User> users, Restaurant restaurant, DataPersistence dataPersistence)
 	{
 		this.setSpeed(speed);
 		this.setCapacity(1);
@@ -43,6 +48,7 @@ public class Drone extends Model implements Runnable
 		this.orders = orders;
 		this.users = users;
 		this.restaurant = restaurant;
+		this.dataPersistence = dataPersistence;
 	}
 
 	public void run()
@@ -172,6 +178,10 @@ public class Drone extends Model implements Runnable
 		{
 			try
 			{
+				Random rand = new Random();
+
+				Thread.sleep(rand.nextInt(100));
+
 				if (!readyToCheck)
 				{
 					stock.wait();
@@ -202,6 +212,9 @@ public class Drone extends Model implements Runnable
 
 		stock.setStock(ingredient, stock.getStock(ingredient).intValue() + ingredient.getRestockAmount().intValue());
 
+		// Tell the server to back itself up when the stock level has changed.
+		dataPersistence.backupServer();
+
 		restocksInProgress.put(ingredient, restocksInProgress.get(ingredient).intValue() - 1);
 	}
 
@@ -216,7 +229,7 @@ public class Drone extends Model implements Runnable
 				if (Thread.currentThread().isInterrupted())
 					return;
 
-				if (o.isComplete() || o.isCancelled() || o.isOutForDelivery())
+				if (o.isComplete() || o.isCancelled() || o.isOutForDelivery() || !orderReady(o))
 					continue;
 
 				o.deliverOrder();
@@ -231,6 +244,14 @@ public class Drone extends Model implements Runnable
 	private void deliverOrder(Order order) throws NoSuchElementException
 	{
 		User user = findCustomer(order);
+
+		for (Map.Entry entry : order.getOrderedDishes().entrySet())
+		{
+			Dish dish = (Dish)entry.getKey();
+			Number quantity = (Number)entry.getValue();
+
+			stock.setStock(dish, stock.getStock(dish).intValue() - quantity.intValue());
+		}
 
 		if (user != null)
 			fly(order, user);
@@ -277,7 +298,6 @@ public class Drone extends Model implements Runnable
 		fly();
 	}
 
-	// TODO: Figure out why currentOrder is not the same object as the one found in user.getOrders().
 	private void fly(Order order, User user)
 	{
 		currentOrder = order.getName();
@@ -327,6 +347,25 @@ public class Drone extends Model implements Runnable
 
 		while (currentDistance < distance)
 		{
+			if (getBattery().doubleValue() <= 0.0)
+			{
+				if (getDestination().equals(restaurant.getLocation()))
+				{
+					returnForRecharge();
+				}
+				else
+				{
+					String status = getStatus();
+
+					returnForRecharge(currentDistance, speed);
+					rechargeBattery();
+
+					setStatus(status);
+
+					currentDistance = 0.0;
+				}
+			}
+
 			for (Order order : orders)
 			{
 				if (currentOrder.equals(""))
@@ -343,7 +382,14 @@ public class Drone extends Model implements Runnable
 
 			double progress = (((currentDistance / distance) * 100) > 100) ? 100.0 : (currentDistance / distance) * 100;
 			progress = Double.valueOf(String.format("%.2f", progress));
+
 			setProgress(progress);
+
+			if (getBattery().doubleValue() > 0.0)
+				setBattery(getBattery().doubleValue() - BATTERY_USAGE_RATE);
+
+			// Tell the server to back itself when the progress of the drone has changed.
+			dataPersistence.backupServer();
 
 			try
 			{
@@ -354,6 +400,9 @@ public class Drone extends Model implements Runnable
 				ex.printStackTrace();
 			}
 		}
+
+		if (getBattery().doubleValue() <= 0.0)
+			rechargeBattery();
 
 		return true;
 	}
@@ -366,5 +415,61 @@ public class Drone extends Model implements Runnable
 		setDestination(restaurant.getLocation());
 
 		fly(distance, speed);
+	}
+
+	public void recoverDrone(ServerComms comms, DataPersistence dataPersistence)
+	{
+		this.comms = comms;
+		this.dataPersistence = dataPersistence;
+	}
+
+	private boolean orderReady(Order order)
+	{
+		for (Map.Entry entry : order.getOrderedDishes().entrySet())
+		{
+			Dish dish = (Dish)entry.getKey();
+			Number quantity = (Number)entry.getValue();
+			Number stockAmount = stock.getStock(dish);
+
+			if (stockAmount.intValue() < quantity.intValue())
+				return false;
+		}
+
+		return true;
+	}
+
+	private void returnForRecharge()
+	{
+		setStatus("Out of battery, returning to " + restaurant.getName() + " to recharge");
+	}
+
+	private void returnForRecharge(double distance, float speed)
+	{
+		Postcode destination = getDestination();
+
+		setStatus("Out of battery, returning to " + restaurant.getName() + " to recharge");
+		setDestination(restaurant.getLocation());
+		setSource(restaurant.getLocation());
+
+		fly(distance, speed);
+
+		setDestination(destination);
+		setSource(restaurant.getLocation());
+	}
+
+	private void rechargeBattery()
+	{
+		setStatus("Recharging battery");
+
+		try
+		{
+			Thread.sleep(30000);
+		}
+		catch (InterruptedException ex)
+		{
+			ex.printStackTrace();
+		}
+
+		setBattery(100.0);
 	}
 }

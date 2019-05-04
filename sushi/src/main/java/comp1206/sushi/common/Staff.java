@@ -1,8 +1,11 @@
 package comp1206.sushi.common;
 
+import comp1206.sushi.server.DataPersistence;
+
+import java.io.Serializable;
 import java.util.*;
 
-public class Staff extends Model implements Runnable
+public class Staff extends Model implements Runnable, Serializable
 {
 	private String name;
 	private String status;
@@ -11,16 +14,18 @@ public class Staff extends Model implements Runnable
 	private final List<Dish> dishes;
 	private static Map<Dish, Number> restocksInProgress = new HashMap<>();
 	private static boolean readyToCheck = true;
+	private transient DataPersistence dataPersistence;
 
 	private static final int UPPER_PREP_TIME = 60;
 	private static final int LOWER_PREP_TIME = 20;
 	
-	public Staff(String name, Stock stock, List<Dish> dishes)
+	public Staff(String name, Stock stock, List<Dish> dishes, DataPersistence dataPersistence)
 	{
 		this.setName(name);
 		this.setFatigue(0);
 		this.stock = stock;
 		this.dishes = dishes;
+		this.dataPersistence = dataPersistence;
 	}
 
 	// run(): Primary method called by the Thread when started.
@@ -126,6 +131,10 @@ public class Staff extends Model implements Runnable
 		{
 			try
 			{
+				Random rand = new Random();
+
+				Thread.sleep(rand.nextInt(100));
+
 				// If the thread is not ready to check if a dish can be prepared, wait.
 				if (!readyToCheck)
 				{
@@ -200,7 +209,15 @@ public class Staff extends Model implements Runnable
 		// Set the stock of the dish to the current stock plus the restock amount.
 		stock.setStock(dish, stock.getStock(dish).intValue() + dish.getRestockAmount().intValue());
 
+		// Tell the server to back itself up when the stock level has changed.
+		dataPersistence.backupServer();
+
 		// Subtract one from the restocksInProgress counter for this dish.
 		restocksInProgress.put(dish, restocksInProgress.get(dish).intValue() - 1);
+	}
+
+	public void recoverStaff(DataPersistence dataPersistence)
+	{
+		this.dataPersistence = dataPersistence;
 	}
 }

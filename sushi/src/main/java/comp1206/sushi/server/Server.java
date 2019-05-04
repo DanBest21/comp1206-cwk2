@@ -1,7 +1,7 @@
 package comp1206.sushi.server;
 
-import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -12,34 +12,47 @@ import comp1206.sushi.common.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.swing.*;
-
-public class Server implements ServerInterface {
+public class Server implements ServerInterface, Serializable {
 
     private static final Logger logger = LogManager.getLogger("Server");
+    private static final String FILE_PATH = "server.bak";
 	
 	private Restaurant restaurant;
-	private final ArrayList<Dish> dishes = new ArrayList<Dish>();
-	private final ArrayList<Drone> drones = new ArrayList<Drone>();
-	private final Map<Drone, Thread> droneThreads = new HashMap<>();
-	private final ArrayList<Ingredient> ingredients = new ArrayList<Ingredient>();
-	private final ArrayList<Order> orders = new ArrayList<Order>();
-	private final ArrayList<Staff> staff = new ArrayList<Staff>();
-	private final Map<Staff, Thread> staffThreads = new HashMap<>();
-	private final ArrayList<Supplier> suppliers = new ArrayList<Supplier>();
-	private final ArrayList<User> users = new ArrayList<User>();
-	private final ArrayList<Postcode> postcodes = new ArrayList<Postcode>();
-	private final Stock stock = new Stock();
-	private final ArrayList<UpdateListener> listeners = new ArrayList<>();
-	private ServerComms comms = new ServerComms(this);
+	private List<Dish> dishes = new ArrayList<Dish>();
+	private List<Drone> drones = new ArrayList<Drone>();
+	private transient Map<Drone, Thread> droneThreads = new HashMap<>();
+	private List<Ingredient> ingredients = new ArrayList<Ingredient>();
+	private List<Order> orders = new ArrayList<Order>();
+	private List<Staff> staff = new ArrayList<Staff>();
+	private transient Map<Staff, Thread> staffThreads = new HashMap<>();
+	private List<Supplier> suppliers = new ArrayList<Supplier>();
+	private List<User> users = new ArrayList<User>();
+	private List<Postcode> postcodes = new ArrayList<Postcode>();
+	private Stock stock = new Stock();
+	private transient final ArrayList<UpdateListener> listeners = new ArrayList<>();
+	private transient ServerComms comms = new ServerComms(this);
+	private transient final DataPersistence dataPersistence = new DataPersistence(FILE_PATH, this);
 	
 	public Server() {
-        logger.info("Starting up server...");
+		Server recoveredServer = dataPersistence.recoverServer();
 
-        addPostcode("SO17 1BJ");
-        restaurant = new Restaurant("Southampton Sushi", postcodes.get(0));
+		if (recoveredServer != null && recoveredServer.getRestaurant() != null)
+		{
+			recoverServer(recoveredServer);
 
-		comms.start();
+			logger.info("Recovering server...");
+
+			comms.start();
+		}
+		else
+		{
+			logger.info("Starting up server...");
+
+			addPostcode("SO17 1BJ");
+			restaurant = new Restaurant("Southampton Sushi", postcodes.get(0));
+
+			comms.start();
+		}
 	}
 	
 	@Override
@@ -149,7 +162,7 @@ public class Server implements ServerInterface {
 
 	@Override
 	public Drone addDrone(Number speed) {
-		Drone drone = new Drone(speed, stock, comms, ingredients, orders, users, restaurant);
+		Drone drone = new Drone(speed, stock, comms, ingredients, orders, users, restaurant, dataPersistence);
 		this.drones.add(drone);
 
 		Thread thread = new Thread(drone);
@@ -178,7 +191,7 @@ public class Server implements ServerInterface {
 
 	@Override
 	public Staff addStaff(String name) {
-		Staff staff = new Staff(name, stock, dishes);
+		Staff staff = new Staff(name, stock, dishes, dataPersistence);
 		this.staff.add(staff);
 
         Thread thread = new Thread(staff);
@@ -211,7 +224,7 @@ public class Server implements ServerInterface {
 
 	public void addDishToOrder(Order order, Dish dish, Number quantity)
 	{
-		if(quantity == Integer.valueOf(0)) {
+		if(quantity.equals(0)) {
 			removeDishFromOrder(order, dish);
 		} else {
 			order.getOrderedDishes().put(dish, quantity);
@@ -283,7 +296,7 @@ public class Server implements ServerInterface {
 
 	@Override
 	public void addIngredientToDish(Dish dish, Ingredient ingredient, Number quantity) {
-		if(quantity == Integer.valueOf(0)) {
+		if(quantity.equals(0)) {
 			removeIngredientFromDish(dish,ingredient);
 		} else {
 			dish.getRecipe().put(ingredient,quantity);
@@ -436,6 +449,7 @@ public class Server implements ServerInterface {
 	
 	@Override
 	public void notifyUpdate() {
+		dataPersistence.backupServer();
 		this.listeners.forEach(listener -> listener.updated(new UpdateEvent()));
 	}
 
@@ -478,6 +492,8 @@ public class Server implements ServerInterface {
 	// clearData(): Clears all of the data on the server.
 	private void clearData()
 	{
+		interruptThreads();
+
 		restaurant = null;
 		dishes.clear();
 		drones.clear();
@@ -491,6 +507,49 @@ public class Server implements ServerInterface {
 		this.notifyUpdate();
 	}
 
+	public Stock getStock() { return this.stock; }
+
+	private void recoverServer(Server recoveredServer)
+	{
+		restaurant = recoveredServer.getRestaurant();
+		dishes = recoveredServer.getDishes();
+		drones = recoveredServer.getDrones();
+
+		for (Drone drone : drones)
+		{
+			drone.recoverDrone(comms, dataPersistence);
+
+			Thread thread = new Thread(drone);
+			droneThreads.put(drone, thread);
+			thread.start();
+		}
+
+		ingredients = recoveredServer.getIngredients();
+		orders = recoveredServer.getOrders();
+
+		for (Order order : orders)
+		{
+			if (order.isOutForDelivery())
+				order.resetOrder();
+		}
+
+		staff = recoveredServer.getStaff();
+
+		for (Staff staff : staff)
+		{
+			staff.recoverStaff(dataPersistence);
+
+			Thread thread = new Thread(staff);
+			staffThreads.put(staff, thread);
+			thread.start();
+		}
+
+		suppliers = recoveredServer.getSuppliers();
+		users = recoveredServer.getUsers();
+		postcodes = recoveredServer.getPostcodes();
+		stock = recoveredServer.getStock();
+	}
+
 	private void interruptThreads()
 	{
 		for (Map.Entry entry : staffThreads.entrySet())
@@ -501,6 +560,12 @@ public class Server implements ServerInterface {
 
 		staffThreads.clear();
 
+		for (Map.Entry entry : droneThreads.entrySet())
+		{
+			Thread thread = (Thread)entry.getValue();
+			thread.interrupt();
+		}
 
+		droneThreads.clear();
 	}
 }

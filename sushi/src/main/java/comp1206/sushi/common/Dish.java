@@ -4,9 +4,6 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
-import comp1206.sushi.common.Dish;
-import comp1206.sushi.common.Ingredient;
-
 public class Dish extends Model implements Serializable {
 
 	private String name;

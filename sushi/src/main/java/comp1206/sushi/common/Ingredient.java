@@ -1,8 +1,5 @@
 package comp1206.sushi.common;
 
-import comp1206.sushi.common.Ingredient;
-import comp1206.sushi.common.Supplier;
-
 import java.io.Serializable;
 
 public class Ingredient extends Model implements Serializable {

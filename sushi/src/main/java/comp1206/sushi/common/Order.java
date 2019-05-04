@@ -59,11 +59,14 @@ public class Order extends Model implements Serializable {
 
 	public void cancelOrder()
 	{
+		isOutForDelivery = false;
 		isCancelled = true;
 		setStatus("Cancelled");
 	}
 
 	public void deliverOrder() { isOutForDelivery = true; }
+
+	public void resetOrder() { isOutForDelivery = false; }
 
 	public boolean isOutForDelivery() { return isOutForDelivery; }
 }
