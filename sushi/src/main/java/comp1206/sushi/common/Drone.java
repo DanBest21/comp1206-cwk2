@@ -32,12 +32,13 @@ public class Drone extends Model implements Runnable, Serializable
 	private String currentOrder = "";
 
 	private static final double BATTERY_USAGE_RATE = 0.25;
+	private static final int DRONE_CAPACITY = 10000;
 
 	public Drone(Number speed, Stock stock, ServerComms comms, List<Ingredient> ingredients, List<Order> orders, List<User> users, Restaurant restaurant, DataPersistence dataPersistence)
 	{
 		this.setSpeed(speed);
-		this.setCapacity(1);
-		this.setBattery(100);
+		this.setCapacity(DRONE_CAPACITY);
+		this.setBattery(100.0);
 		this.setSource(restaurant.getLocation());
 		this.setDestination(restaurant.getLocation());
 		this.setProgress(0.00);
@@ -125,9 +126,7 @@ public class Drone extends Model implements Runnable, Serializable
 		this.capacity = capacity;
 	}
 
-	public Number getBattery() {
-		return battery;
-	}
+	public Number getBattery() { return battery; }
 
 	public void setBattery(Number battery) {
 		this.battery = battery;
@@ -189,13 +188,14 @@ public class Drone extends Model implements Runnable, Serializable
 			}
 			catch (InterruptedException ex)
 			{
+				Thread.currentThread().interrupt();
 				return false;
 			}
 
 			readyToCheck = false;
 		}
 
-		if (stock.getStock(ingredient).intValue() + (restocksInProgress.get(ingredient).intValue() * ingredient.getRestockAmount().intValue())
+		if (stock.getStock(ingredient).intValue() + (restocksInProgress.get(ingredient).intValue() * (getCapacity().intValue() * ingredient.getWeight().intValue()))
 				>= ingredient.getRestockThreshold().intValue() || Thread.currentThread().isInterrupted())
 		{
 			return false;
@@ -208,9 +208,11 @@ public class Drone extends Model implements Runnable, Serializable
 	{
 		restocksInProgress.put(ingredient, restocksInProgress.get(ingredient).intValue() + 1);
 
-		fly(ingredient.getSupplier());
+		int load = loadDrone(ingredient);
 
-		stock.setStock(ingredient, stock.getStock(ingredient).intValue() + ingredient.getRestockAmount().intValue());
+		fly(ingredient.getSupplier(), ingredient.getName());
+
+		stock.setStock(ingredient, stock.getStock(ingredient).intValue() + load);
 
 		// Tell the server to back itself up when the stock level has changed.
 		dataPersistence.backupServer();
@@ -267,7 +269,7 @@ public class Drone extends Model implements Runnable, Serializable
 		}
 		catch (InterruptedException ex)
 		{
-			ex.printStackTrace();
+			Thread.currentThread().interrupt();
 		}
 
 		synchronized (users)
@@ -285,14 +287,14 @@ public class Drone extends Model implements Runnable, Serializable
 		}
 	}
 
-	private void fly(Supplier supplier)
+	private void fly(Supplier supplier, String ingredientName)
 	{
-		setStatus("Retrieving ingredients from " + supplier.getName());
+		setStatus("Retrieving " + ingredientName + " from " + supplier.getName());
 		setSource(restaurant.getLocation());
 		setDestination(supplier.getPostcode());
 		fly();
 
-		setStatus("Returning to " + restaurant.getName());
+		setStatus("Returning to " + restaurant.getName() + " with " + ingredientName);
 		setSource(supplier.getPostcode());
 		setDestination(restaurant.getLocation());
 		fly();
@@ -322,7 +324,8 @@ public class Drone extends Model implements Runnable, Serializable
 			setSource(user.getPostcode());
 			setDestination(restaurant.getLocation());
 
-			synchronized (comms) {
+			synchronized (comms)
+			{
 				comms.sendMessage("CHANGE ORDER STATUS", order, user);
 			}
 
@@ -397,7 +400,7 @@ public class Drone extends Model implements Runnable, Serializable
 			}
 			catch (InterruptedException ex)
 			{
-				ex.printStackTrace();
+				Thread.currentThread().interrupt();
 			}
 		}
 
@@ -467,9 +470,25 @@ public class Drone extends Model implements Runnable, Serializable
 		}
 		catch (InterruptedException ex)
 		{
-			ex.printStackTrace();
+			Thread.currentThread().interrupt();
 		}
 
 		setBattery(100.0);
+	}
+
+	private int loadDrone(Ingredient ingredient)
+	{
+		int capacity = getCapacity().intValue();
+		double weight = ingredient.getWeight().doubleValue();
+		int restockAmount = ingredient.getRestockAmount().intValue();
+		int restockThreshold = ingredient.getRestockThreshold().intValue();
+		int load = 0;
+
+		while ((load < capacity) && (load < (restockThreshold * weight)))
+		{
+			load = load + (int)Math.round(restockAmount * weight);
+		}
+
+		return load;
 	}
 }

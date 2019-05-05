@@ -374,6 +374,8 @@ public class Server implements ServerInterface, Serializable {
 
 		clearData();
 
+		interruptThreads();
+
 		configuration.loadConfigFile();
 
 		System.out.println("Loaded configuration: " + filename);
@@ -520,6 +522,7 @@ public class Server implements ServerInterface, Serializable {
 			drone.recoverDrone(comms, dataPersistence);
 
 			Thread thread = new Thread(drone);
+			thread.setName(drone.getName());
 			droneThreads.put(drone, thread);
 			thread.start();
 		}
@@ -540,6 +543,7 @@ public class Server implements ServerInterface, Serializable {
 			staff.recoverStaff(dataPersistence);
 
 			Thread thread = new Thread(staff);
+			thread.setName(staff.getName());
 			staffThreads.put(staff, thread);
 			thread.start();
 		}

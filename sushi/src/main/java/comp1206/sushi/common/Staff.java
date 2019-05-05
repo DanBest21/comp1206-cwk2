@@ -18,11 +18,13 @@ public class Staff extends Model implements Runnable, Serializable
 
 	private static final int UPPER_PREP_TIME = 60;
 	private static final int LOWER_PREP_TIME = 20;
+
+	private static final double FATIGUE_RATE = 1;
 	
 	public Staff(String name, Stock stock, List<Dish> dishes, DataPersistence dataPersistence)
 	{
 		this.setName(name);
-		this.setFatigue(0);
+		this.setFatigue(0.0);
 		this.stock = stock;
 		this.dishes = dishes;
 		this.dataPersistence = dataPersistence;
@@ -143,6 +145,7 @@ public class Staff extends Model implements Runnable, Serializable
 			}
 			catch (InterruptedException ex)
 			{
+				Thread.currentThread().interrupt();
 				return false;
 			}
 
@@ -193,6 +196,7 @@ public class Staff extends Model implements Runnable, Serializable
 		}
 		catch (InterruptedException ex)
 		{
+			Thread.currentThread().interrupt();
 			return;
 		}
 
@@ -214,10 +218,32 @@ public class Staff extends Model implements Runnable, Serializable
 
 		// Subtract one from the restocksInProgress counter for this dish.
 		restocksInProgress.put(dish, restocksInProgress.get(dish).intValue() - 1);
+
+		double fatigue = getFatigue().doubleValue() + (FATIGUE_RATE * (prepTime / 1000.0));
+		setFatigue((fatigue >= 100) ? 100.0 : fatigue);
+
+		if (getFatigue().doubleValue() >= 100.0)
+			recharge();
 	}
 
 	public void recoverStaff(DataPersistence dataPersistence)
 	{
 		this.dataPersistence = dataPersistence;
+	}
+
+	private void recharge()
+	{
+		setStatus("Taking a break to recharge");
+
+		try
+		{
+			Thread.sleep(30000);
+		}
+		catch (InterruptedException ex)
+		{
+			Thread.currentThread().interrupt();
+		}
+
+		setFatigue(0.0);
 	}
 }

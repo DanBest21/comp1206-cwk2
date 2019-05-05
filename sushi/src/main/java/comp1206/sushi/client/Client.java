@@ -217,10 +217,15 @@ public class Client implements ClientInterface
 	public void cancelOrder(Order order)
 	{
 		if (order.isComplete())
+		{
 			System.err.println("Cannot cancel order " + order.getName() + " as it is already complete.");
-		order.cancelOrder();
-		comms.sendMessage("CANCEL ORDER", order, loggedInUser);
-		this.notifyUpdate();
+		}
+		else
+		{
+			order.cancelOrder();
+			comms.sendMessage("CANCEL ORDER", order, loggedInUser);
+			this.notifyUpdate();
+		}
 	}
 
 	public void setRestaurant(Restaurant restaurant) { this.restaurant = restaurant; }
