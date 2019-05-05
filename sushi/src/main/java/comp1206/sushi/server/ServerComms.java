@@ -105,6 +105,10 @@ public class ServerComms extends Thread
                             output.writeObject((User)model);
                             break;
 
+                        // The message alone will suffice.
+                        case "CLEAR DATA":
+                            break;
+
                         default:
                             throw new IOException("Attempting to send unrecognised command - " + message);
                     }

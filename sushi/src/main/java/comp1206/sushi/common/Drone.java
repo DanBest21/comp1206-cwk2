@@ -33,7 +33,7 @@ public class Drone extends Model implements Runnable, Serializable
 
 	private static final double BATTERY_USAGE_RATE = 0.25;
 	private static final int DRONE_CAPACITY = 10000;
-	private static final long RECHARGE_TIME = 30000;
+	private static final long RECHARGE_TIME = 120000;
 
 	public Drone(Number speed, Stock stock, ServerComms comms, List<Ingredient> ingredients, List<Order> orders, List<User> users, Restaurant restaurant, DataPersistence dataPersistence)
 	{
@@ -492,8 +492,10 @@ public class Drone extends Model implements Runnable, Serializable
 	    Postcode source = getSource();
 		Postcode destination = getDestination();
 
-		// Get the absolute value to ensure that the distance is always positive.
-		double distance = Math.abs(destination.getDistance().doubleValue() - source.getDistance().doubleValue());
+		// Determine the distance by either getting the already calculated distance to the restaurant if the source or the destination is the restaurant, or by calculating the
+		// distance between the source and destination using the calculateDistance() method.
+		double distance = (source == restaurant.getLocation()) ? destination.getDistance().doubleValue() :
+				(destination == restaurant.getLocation()) ? source.getDistance().doubleValue() : source.calculateDistance(destination);
 		float speed = getSpeed().floatValue();
 
 		return fly(distance, speed);

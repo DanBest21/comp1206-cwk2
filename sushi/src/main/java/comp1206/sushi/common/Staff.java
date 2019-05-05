@@ -20,7 +20,7 @@ public class Staff extends Model implements Runnable, Serializable
 	private static final int LOWER_PREP_TIME = 20;
 
 	private static final double FATIGUE_RATE = 1;
-	private static final long RECHARGE_TIME = 30000;
+	private static final long RECHARGE_TIME = 60000;
 	
 	public Staff(String name, Stock stock, List<Dish> dishes, DataPersistence dataPersistence)
 	{

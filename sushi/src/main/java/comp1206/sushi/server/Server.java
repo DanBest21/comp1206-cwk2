@@ -373,7 +373,7 @@ public class Server implements ServerInterface, Serializable {
 		Configuration configuration = new Configuration(filename, this);
 
 		clearData();
-
+		comms.sendMessage("CLEAR DATA", null);
 		interruptThreads();
 
 		configuration.loadConfigFile();

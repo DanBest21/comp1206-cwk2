@@ -27,7 +27,7 @@ public class Postcode extends Model implements Serializable {
 	public Postcode(String code, Restaurant restaurant) {
 		this.name = code;
 		calculateLatLong();
-		calculateDistance(restaurant);
+		this.distance = calculateDistance(restaurant.getLocation());
 	}
 
 	@Override
@@ -47,10 +47,8 @@ public class Postcode extends Model implements Serializable {
 		return this.latLong;
 	}
 
-	protected void calculateDistance(Restaurant restaurant)
+	public double calculateDistance(Postcode destination)
 	{
-		Postcode destination = restaurant.getLocation();
-
 		// *******************************************************************************************************************************
 		// * Title: Adapted lat/long distance calculator method
 		// * Author: David George
@@ -75,10 +73,10 @@ public class Postcode extends Model implements Serializable {
 
 		distance = Math.pow(distance, 2);
 
-		this.distance = Double.parseDouble(String.format("%.2f", Math.sqrt(distance)));
+		return Double.parseDouble(String.format("%.2f", Math.sqrt(distance)));
 	}
 
-	protected void calculateLatLong()
+	private void calculateLatLong()
 	{
 		this.latLong = new HashMap<>();
 

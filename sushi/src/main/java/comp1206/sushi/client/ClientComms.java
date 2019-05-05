@@ -234,6 +234,10 @@ public class ClientComms extends Thread
                     removeOrder();
                     break;
 
+                case "CLEAR DATA":
+                    clearData();
+                    break;
+
                 default:
                     throw new IOException("Unrecognised message received - " + message);
             }
@@ -374,5 +378,14 @@ public class ClientComms extends Thread
         client.getOrders(client.getLoggedInUser()).remove(clientOrder);
 
         return order;
+    }
+
+    // clearData(): Clears all of the data loaded from the server - used when loading a new configuration.
+    private void clearData()
+    {
+        client.setRestaurant(null);
+        client.getPostcodes().clear();
+        client.getDishes().clear();
+        client.getUsers().clear();
     }
 }
