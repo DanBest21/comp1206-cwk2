@@ -83,7 +83,18 @@ public class Drone extends Model implements Runnable, Serializable
 			}
 
 			// If there are no ingredients to restock, then try to deliver orders.
-			deliverOrders();
+			try
+			{
+				deliverOrders();
+			}
+			catch (ConcurrentModificationException ex)
+			{
+				// Do nothing since another thread is working that will fix this issue.
+			}
+			catch (NoSuchElementException ex)
+			{
+				ex.printStackTrace();
+			}
 		}
 	}
 
@@ -164,7 +175,10 @@ public class Drone extends Model implements Runnable, Serializable
 			// While the ingredient can be restocked:
 			while (canRestockIngredient(ingredient))
 			{
-                // Notify the other threads that they can now carry on with their check to see if an ingredient can be restocked.
+				// Add one to the RESTOCKS_IN_PROGRESS counter for this ingredient.
+				RESTOCKS_IN_PROGRESS.put(ingredient, RESTOCKS_IN_PROGRESS.get(ingredient).intValue() + 1);
+
+				// Notify the other threads that they can now carry on with their check to see if an ingredient can be restocked.
 			    synchronized (stock)
 				{
 					readyToCheck = true;
@@ -204,7 +218,10 @@ public class Drone extends Model implements Runnable, Serializable
             // While the ingredient can be restocked:
 			while (canRestockIngredient(ingredient))
 			{
-                // Notify the other threads that they can now carry on with their check to see if an ingredient can be restocked.
+				// Add one to the RESTOCKS_IN_PROGRESS counter for this ingredient.
+				RESTOCKS_IN_PROGRESS.put(ingredient, RESTOCKS_IN_PROGRESS.get(ingredient).intValue() + 1);
+
+				// Notify the other threads that they can now carry on with their check to see if an ingredient can be restocked.
 			    synchronized (stock)
 				{
 					readyToCheck = true;
@@ -234,9 +251,10 @@ public class Drone extends Model implements Runnable, Serializable
 		{
 			try
 			{
+				// Sleep for a random time just to ensure everything is place.
 				Random rand = new Random();
 
-				Thread.sleep(rand.nextInt(100));
+				Thread.sleep(rand.nextInt(200));
 
 				// If the thread is not ready to check if a dish can be prepared, wait.
 				if (!readyToCheck)
@@ -268,18 +286,15 @@ public class Drone extends Model implements Runnable, Serializable
 	// restockIngredient(Ingredient): Method that restocks the ingredient based on the capacity of the drone, and the weight of the ingredient.
 	private void restockIngredient(Ingredient ingredient)
 	{
-	    int load = 0;
+	    int load;
 
 	    synchronized (RESTOCKS_IN_PROGRESS)
         {
-            // Determine the load - either the max load possible of that ingredient on the drone, or the max load possible given the restock threshold minus the
-            // load of the current drone collections of the specific ingredient, rounded to the nearest restock amount possible.
-            load = Math.min(calculateMaxLoad(ingredient), Math.round(((ingredient.getRestockThreshold().intValue() * ingredient.getWeight().intValue()) -
-                    (RESTOCKS_IN_PROGRESS.get(ingredient).intValue() * calculateMaxLoad(ingredient)))
-                            / ingredient.getRestockAmount().intValue()) * ingredient.getRestockAmount().intValue());
-
-            // Add one to the RESTOCKS_IN_PROGRESS counter for this ingredient.
-            RESTOCKS_IN_PROGRESS.put(ingredient, RESTOCKS_IN_PROGRESS.get(ingredient).intValue() + 1);
+        	// Determine the load - either the max load possible of that ingredient on the drone, or the max load possible given the restock threshold minus the
+            // load of the current drone collections of the specific ingredient, rounded to the nearest restock amount possible (at least 1 restock amount).
+            load = Math.min(calculateMaxLoad(ingredient), Math.max(Math.round(((ingredient.getRestockThreshold().intValue() * ingredient.getWeight().intValue()) -
+                    ((RESTOCKS_IN_PROGRESS.get(ingredient).intValue() - 1) * calculateMaxLoad(ingredient)))
+                            / ingredient.getRestockAmount().intValue()), 1) * ingredient.getRestockAmount().intValue());
         }
 
 		// Call the fly() method and put the returning map into a variable.
@@ -292,7 +307,7 @@ public class Drone extends Model implements Runnable, Serializable
 			Ingredient i = (Ingredient)entry.getKey();
 			Number ingredientLoad = (Number)entry.getValue();
 
-			stock.setStock(i, stock.getStock(i).intValue() + (ingredientLoad.intValue() / ingredient.getWeight().intValue()));
+			stock.setStock(i, stock.getStock(i).intValue() + (ingredientLoad.intValue() / i.getWeight().intValue()));
 
 			// Subtract one from the RESTOCKS_IN_PROGRESS counter for this ingredient.
 			RESTOCKS_IN_PROGRESS.put(i, RESTOCKS_IN_PROGRESS.get(i).intValue() - 1);
@@ -308,13 +323,10 @@ public class Drone extends Model implements Runnable, Serializable
 	    synchronized (RESTOCKS_IN_PROGRESS)
         {
             // Determine the load - either the max load possible of that ingredient on the drone minus the current load, or the max load possible given the restock threshold minus the
-            // load of the current drone collections of the specific ingredient, rounded to the nearest restock amount possible.
-            load = Math.min(calculateMaxLoad(ingredient) - load, Math.round(((ingredient.getRestockThreshold().intValue() * ingredient.getWeight().intValue()) -
-                    (RESTOCKS_IN_PROGRESS.get(ingredient).intValue() * (calculateMaxLoad(ingredient))))
-                            / ingredient.getRestockAmount().intValue()) * ingredient.getRestockAmount().intValue());
-
-            // Add one to the RESTOCKS_IN_PROGRESS counter for this ingredient.
-            RESTOCKS_IN_PROGRESS.put(ingredient, RESTOCKS_IN_PROGRESS.get(ingredient).intValue() + 1);
+            // load of the current drone collections of the specific ingredient, rounded to the nearest restock amount possible (at least 1 restock amount).
+            load = Math.min(calculateMaxLoad(ingredient) - load, Math.max(Math.round(((ingredient.getRestockThreshold().intValue() * ingredient.getWeight().intValue()) -
+                    ((RESTOCKS_IN_PROGRESS.get(ingredient).intValue() - 1) * (calculateMaxLoad(ingredient))))
+                            / ingredient.getRestockAmount().intValue()), 1) * ingredient.getRestockAmount().intValue());
         }
 
         // Call the fly() function and return the Map object it returns.
@@ -322,7 +334,7 @@ public class Drone extends Model implements Runnable, Serializable
 	}
 
 	// deliverOrders(): Method that checks to see if any order can be delivered.
-	private void deliverOrders() throws NoSuchElementException
+	private void deliverOrders() throws NoSuchElementException, ConcurrentModificationException
 	{
 		Order order = null;
 
@@ -402,13 +414,21 @@ public class Drone extends Model implements Runnable, Serializable
 		}
 	}
 
-	// fly(Ingredient, int): Function that initiates the flying process when restocking ingredients.
+	// fly(Ingredient, int): Function that initiates the flying process when restocking ingredients and simulates flying back to the restaurant.
 	private Map<Ingredient, Number> fly(Ingredient ingredient, int load)
 	{
 		// Create a new Map object for loadedIngredients.
 	    Map<Ingredient, Number> loadedIngredients = new HashMap<>();
 
-		return fly(ingredient, load, loadedIngredients, restaurant.getLocation());
+		loadedIngredients = fly(ingredient, load, loadedIngredients, restaurant.getLocation());
+
+		// Simulate returning the ingredients the drone has to the restaurant.
+		setStatus("Returning to " + restaurant.getName() + " with ingredients");
+		setSource(ingredient.getSupplier().getPostcode());
+		setDestination(restaurant.getLocation());
+		fly();
+
+		return loadedIngredients;
 	}
 
 	// fly(Ingredient, int, Map<Ingredient, Number>, Postcode): Method that simulates the flying process for restocking ingredients.
@@ -436,14 +456,6 @@ public class Drone extends Model implements Runnable, Serializable
 		if (totalLoad < getCapacity().intValue())
 		{
 			loadedIngredients = restockIngredients(loadedIngredients, load, ingredient.getSupplier().getPostcode());
-		}
-		// Otherwise, simulate returning the ingredients the drone has to the restaurant.
-		else
-		{
-			setStatus("Returning to " + restaurant.getName() + " with ingredients");
-			setSource(ingredient.getSupplier().getPostcode());
-			setDestination(restaurant.getLocation());
-			fly();
 		}
 
 		return loadedIngredients;

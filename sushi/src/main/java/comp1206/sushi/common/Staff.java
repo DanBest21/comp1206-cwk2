@@ -106,6 +106,9 @@ public class Staff extends Model implements Runnable, Serializable
 			// While the dish can be prepared:
 			while (canPrepareDish(dish))
 			{
+				// Add one to the RESTOCKS_IN_PROGRESS counter for this dish.
+				RESTOCKS_IN_PROGRESS.put(dish, RESTOCKS_IN_PROGRESS.get(dish).intValue() + 1);
+
 				// Notify the other threads that they can now carry on with their check to see if a dish can be prepared.
 				synchronized (stock)
 				{
@@ -134,6 +137,7 @@ public class Staff extends Model implements Runnable, Serializable
 		{
 			try
 			{
+				// Sleep for a random time just to ensure everything is place.
 				Random rand = new Random();
 
 				Thread.sleep(rand.nextInt(100));
@@ -182,8 +186,7 @@ public class Staff extends Model implements Runnable, Serializable
 	// restockDish(Dish): Function that restocks the dish by the restock amount.
 	private void restockDish(Dish dish)
 	{
-		// Add one to the RESTOCKS_IN_PROGRESS counter for this dish and set the status to preparing this dish.
-		RESTOCKS_IN_PROGRESS.put(dish, RESTOCKS_IN_PROGRESS.get(dish).intValue() + 1);
+		// Set the status to preparing this dish.
 		setStatus("Preparing " + dish.getName());
 
 		// Generate a random preparation time between the upper and lower bounds (in milliseconds).

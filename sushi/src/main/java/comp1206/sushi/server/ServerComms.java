@@ -137,6 +137,10 @@ public class ServerComms extends Thread
                 for (Map.Entry entry : serverListeners.entrySet()) {
                     User loggedInUser = (User) entry.getValue();
 
+                    // If no one is logged in yet, continue.
+                    if (loggedInUser == null)
+                        continue;
+
                     // If the loggedInUser of the client is equal to the user we want to send the message and data to, continue.
                     if (loggedInUser.getName().equals(user.getName())) {
                         ServerListener serverListener = (ServerListener) entry.getKey();
