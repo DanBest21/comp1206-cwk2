@@ -171,6 +171,40 @@ public class Drone extends Model implements Runnable, Serializable
 		}
 	}
 
+	private Map<Ingredient, Number> restockIngredients(int load, Map<Ingredient, Number> loadedIngredients, Postcode source) throws ConcurrentModificationException
+	{
+		for (Ingredient ingredient : ingredients)
+		{
+			if (!restocksInProgress.containsKey(ingredient))
+				restocksInProgress.put(ingredient, 0);
+
+			if (Thread.currentThread().isInterrupted())
+				 return null;
+
+			if ((getCapacity().intValue() - load) < ingredient.getRestockAmount().intValue())
+				continue;
+
+			while (canRestockIngredient(ingredient))
+			{
+				synchronized (stock)
+				{
+					readyToCheck = true;
+					stock.notify();
+				}
+
+				return restockIngredient(ingredient, load, loadedIngredients, source);
+			}
+
+			synchronized (stock)
+			{
+				readyToCheck = true;
+				stock.notify();
+			}
+		}
+
+		return loadedIngredients;
+	}
+
 	private boolean canRestockIngredient(Ingredient ingredient)
 	{
 		synchronized (stock)
@@ -195,7 +229,7 @@ public class Drone extends Model implements Runnable, Serializable
 			readyToCheck = false;
 		}
 
-		if (stock.getStock(ingredient).intValue() + (restocksInProgress.get(ingredient).intValue() * (getCapacity().intValue() * ingredient.getWeight().intValue()))
+		if (stock.getStock(ingredient).intValue() + (restocksInProgress.get(ingredient).intValue() * (calculateLoad(ingredient) / ingredient.getWeight().intValue()))
 				>= ingredient.getRestockThreshold().intValue() || Thread.currentThread().isInterrupted())
 		{
 			return false;
@@ -206,18 +240,35 @@ public class Drone extends Model implements Runnable, Serializable
 
 	private void restockIngredient(Ingredient ingredient)
 	{
+		int load = Math.min(calculateLoad(ingredient), (ingredient.getRestockThreshold().intValue() * ingredient.getWeight().intValue()) -
+				(restocksInProgress.get(ingredient).intValue() * (calculateLoad(ingredient))));
+
 		restocksInProgress.put(ingredient, restocksInProgress.get(ingredient).intValue() + 1);
 
-		int load = loadDrone(ingredient);
+		Map<Ingredient, Number> loadedIngredients = fly(ingredient, load);
 
-		fly(ingredient.getSupplier(), ingredient.getName());
+		for (Map.Entry entry : loadedIngredients.entrySet())
+		{
+			Ingredient i = (Ingredient)entry.getKey();
+			Number ingredientLoad = (Number)entry.getValue();
 
-		stock.setStock(ingredient, stock.getStock(ingredient).intValue() + load);
+			stock.setStock(i, stock.getStock(i).intValue() + (ingredientLoad.intValue() / ingredient.getWeight().intValue()));
+
+			restocksInProgress.put(i, restocksInProgress.get(i).intValue() - 1);
+		}
 
 		// Tell the server to back itself up when the stock level has changed.
 		dataPersistence.backupServer();
+	}
 
-		restocksInProgress.put(ingredient, restocksInProgress.get(ingredient).intValue() - 1);
+	private Map<Ingredient, Number> restockIngredient(Ingredient ingredient, int load, Map<Ingredient, Number> loadedIngredients, Postcode source)
+	{
+		load = Math.min(calculateLoad(ingredient) - load, (ingredient.getRestockThreshold().intValue() * ingredient.getWeight().intValue()) -
+				(restocksInProgress.get(ingredient).intValue() * (calculateLoad(ingredient))));
+
+		restocksInProgress.put(ingredient, restocksInProgress.get(ingredient).intValue() + 1);
+
+		return fly(ingredient, load, loadedIngredients, source);
 	}
 
 	private void deliverOrders() throws NoSuchElementException
@@ -287,17 +338,43 @@ public class Drone extends Model implements Runnable, Serializable
 		}
 	}
 
-	private void fly(Supplier supplier, String ingredientName)
+	private Map<Ingredient, Number> fly(Ingredient ingredient, int load)
 	{
-		setStatus("Retrieving " + ingredientName + " from " + supplier.getName());
-		setSource(restaurant.getLocation());
-		setDestination(supplier.getPostcode());
+		Map<Ingredient, Number> loadedIngredients = new HashMap<>();
+
+		return fly(ingredient, load, loadedIngredients, restaurant.getLocation());
+	}
+
+	private Map<Ingredient, Number> fly(Ingredient ingredient, int load, Map<Ingredient, Number> loadedIngredients, Postcode source)
+	{
+		setStatus("Retrieving " + ingredient.getName() + " from " + ingredient.getSupplier().getName());
+		setSource(source);
+		setDestination(ingredient.getSupplier().getPostcode());
 		fly();
 
-		setStatus("Returning to " + restaurant.getName() + " with " + ingredientName);
-		setSource(supplier.getPostcode());
-		setDestination(restaurant.getLocation());
-		fly();
+		loadedIngredients.put(ingredient, load);
+
+		int totalLoad = 0;
+
+		for (Map.Entry entry : loadedIngredients.entrySet())
+		{
+			Number ingredientLoad = (Number)entry.getValue();
+			totalLoad = totalLoad + ingredientLoad.intValue();
+		}
+
+		if (totalLoad < getCapacity().intValue())
+		{
+			loadedIngredients = restockIngredients(totalLoad, loadedIngredients, ingredient.getSupplier().getPostcode());
+		}
+		else
+		{
+			setStatus("Returning to " + restaurant.getName() + " with ingredients");
+			setSource(ingredient.getSupplier().getPostcode());
+			setDestination(restaurant.getLocation());
+			fly();
+		}
+
+		return loadedIngredients;
 	}
 
 	private void fly(Order order, User user)
@@ -476,7 +553,7 @@ public class Drone extends Model implements Runnable, Serializable
 		setBattery(100.0);
 	}
 
-	private int loadDrone(Ingredient ingredient)
+	private int calculateLoad(Ingredient ingredient)
 	{
 		int capacity = getCapacity().intValue();
 		double weight = ingredient.getWeight().doubleValue();
