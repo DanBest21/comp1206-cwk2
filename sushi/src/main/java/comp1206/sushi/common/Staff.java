@@ -12,15 +12,15 @@ public class Staff extends Model implements Runnable, Serializable
 	private Number fatigue;
 	private final Stock stock;
 	private final List<Dish> dishes;
-	private transient static final Map<Dish, Number> RESTOCKS_IN_PROGRESS = new HashMap<>();
 	private transient static boolean readyToCheck = true;
 	private transient DataPersistence dataPersistence;
 
 	private static final int UPPER_PREP_TIME = 60;
 	private static final int LOWER_PREP_TIME = 20;
-
 	private static final double FATIGUE_RATE = 1;
 	private static final long RECHARGE_TIME = 60000;
+
+    private transient static final Map<Dish, Number> RESTOCKS_IN_PROGRESS = new HashMap<>();
 	
 	public Staff(String name, Stock stock, List<Dish> dishes, DataPersistence dataPersistence)
 	{

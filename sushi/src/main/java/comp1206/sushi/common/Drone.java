@@ -25,7 +25,6 @@ public class Drone extends Model implements Runnable, Serializable
 	private final List<User> users;
 	private final Restaurant restaurant;
     private transient ServerComms comms;
-	private transient static final Map<Ingredient, Number> RESTOCKS_IN_PROGRESS = new HashMap<>();
 	private transient static boolean readyToCheck = true;
 	private transient DataPersistence dataPersistence;
 
@@ -34,6 +33,8 @@ public class Drone extends Model implements Runnable, Serializable
 	private static final double BATTERY_USAGE_RATE = 0.25;
 	private static final int DRONE_CAPACITY = 10000;
 	private static final long RECHARGE_TIME = 120000;
+
+    private transient static final Map<Ingredient, Number> RESTOCKS_IN_PROGRESS = new HashMap<>();
 
 	public Drone(Number speed, Stock stock, ServerComms comms, List<Ingredient> ingredients, List<Order> orders, List<User> users, Restaurant restaurant, DataPersistence dataPersistence)
 	{
@@ -535,7 +536,6 @@ public class Drone extends Model implements Runnable, Serializable
 					String status = getStatus();
 
 					returnForRecharge(currentDistance, speed);
-					rechargeBattery();
 
 					setStatus(status);
 
