@@ -12,4 +12,4 @@ Please update this file to reflect your progress by adding a * inside the bracke
 [*] Extension: Drone battery
 [*] Extension: Staff fatigue
 [*] Extension: Drone capacity
-[ ] Extension: Multiple drone hops
+[*] Extension: Multiple drone hops

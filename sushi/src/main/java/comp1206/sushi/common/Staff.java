@@ -12,14 +12,15 @@ public class Staff extends Model implements Runnable, Serializable
 	private Number fatigue;
 	private final Stock stock;
 	private final List<Dish> dishes;
-	private static Map<Dish, Number> restocksInProgress = new HashMap<>();
-	private static boolean readyToCheck = true;
+	private transient static final Map<Dish, Number> RESTOCKS_IN_PROGRESS = new HashMap<>();
+	private transient static boolean readyToCheck = true;
 	private transient DataPersistence dataPersistence;
 
 	private static final int UPPER_PREP_TIME = 60;
 	private static final int LOWER_PREP_TIME = 20;
 
 	private static final double FATIGUE_RATE = 1;
+	private static final long RECHARGE_TIME = 30000;
 	
 	public Staff(String name, Stock stock, List<Dish> dishes, DataPersistence dataPersistence)
 	{
@@ -94,9 +95,9 @@ public class Staff extends Model implements Runnable, Serializable
 	{
 		for (Dish dish : dishes)
 		{
-			// Add the key if it's not already in the restocksInProgress map.
-			if (!restocksInProgress.containsKey(dish))
-				restocksInProgress.put(dish, 0);
+			// Add the key if it's not already in the RESTOCKS_IN_PROGRESS map.
+			if (!RESTOCKS_IN_PROGRESS.containsKey(dish))
+				RESTOCKS_IN_PROGRESS.put(dish, 0);
 
 			// Stop the thread if it's been interrupted.
 			if (Thread.currentThread().isInterrupted())
@@ -153,7 +154,7 @@ public class Staff extends Model implements Runnable, Serializable
 			readyToCheck = false;
 
 			// If the stock level of a dish plus any dishes in preparation is high enough or equal to the restock threshold, or the thread has been interrupted, return false.
-			if ((stock.getStock(dish).intValue() + (restocksInProgress.get(dish).intValue() * dish.getRestockAmount().intValue()) >= dish.getRestockThreshold().intValue()) ||
+			if ((stock.getStock(dish).intValue() + (RESTOCKS_IN_PROGRESS.get(dish).intValue() * dish.getRestockAmount().intValue()) >= dish.getRestockThreshold().intValue()) ||
 					Thread.currentThread().isInterrupted())
 			{
 				return false;
@@ -167,7 +168,7 @@ public class Staff extends Model implements Runnable, Serializable
 
 				// If the stock level of an ingredient is below the number of ingredients required for a dish, times the restock amount, multiplied by
 				// the number of restocks of this dish in progress plus one for the restock that would occur if this returned true, then return false.
-				if (stock.getStock(ingredient).intValue() < (quantity.intValue() * dish.getRestockAmount().intValue()) * (restocksInProgress.get(dish).intValue() + 1))
+				if (stock.getStock(ingredient).intValue() < (quantity.intValue() * dish.getRestockAmount().intValue()) * (RESTOCKS_IN_PROGRESS.get(dish).intValue() + 1))
 				{
 					return false;
 				}
@@ -181,8 +182,8 @@ public class Staff extends Model implements Runnable, Serializable
 	// restockDish(Dish): Function that restocks the dish by the restock amount.
 	private void restockDish(Dish dish)
 	{
-		// Add one to the restocksInProgress counter for this dish and set the status to preparing this dish.
-		restocksInProgress.put(dish, restocksInProgress.get(dish).intValue() + 1);
+		// Add one to the RESTOCKS_IN_PROGRESS counter for this dish and set the status to preparing this dish.
+		RESTOCKS_IN_PROGRESS.put(dish, RESTOCKS_IN_PROGRESS.get(dish).intValue() + 1);
 		setStatus("Preparing " + dish.getName());
 
 		// Generate a random preparation time between the upper and lower bounds (in milliseconds).
@@ -216,34 +217,40 @@ public class Staff extends Model implements Runnable, Serializable
 		// Tell the server to back itself up when the stock level has changed.
 		dataPersistence.backupServer();
 
-		// Subtract one from the restocksInProgress counter for this dish.
-		restocksInProgress.put(dish, restocksInProgress.get(dish).intValue() - 1);
+		// Subtract one from the RESTOCKS_IN_PROGRESS counter for this dish.
+		RESTOCKS_IN_PROGRESS.put(dish, RESTOCKS_IN_PROGRESS.get(dish).intValue() - 1);
 
+		// Calculate the fatigue that the staff member has gained, and then set the fatigue to this value (or 100 if above 100).
 		double fatigue = getFatigue().doubleValue() + (FATIGUE_RATE * (prepTime / 1000.0));
 		setFatigue((fatigue >= 100) ? 100.0 : fatigue);
 
+		// If the fatigue is above or equal to 100, call the recharge method.
 		if (getFatigue().doubleValue() >= 100.0)
 			recharge();
 	}
 
+	// recoverStaff(DataPersistence): Sets the DataPersistence object to the passed variable to send further backups when recovered.
 	public void recoverStaff(DataPersistence dataPersistence)
 	{
 		this.dataPersistence = dataPersistence;
 	}
 
+	// recharge(): Method that simulates a staff member taking a break.
 	private void recharge()
 	{
 		setStatus("Taking a break to recharge");
 
+		// Recharge for the time indicated by the RECHARGE_TIME constant.
 		try
 		{
-			Thread.sleep(30000);
+			Thread.sleep(RECHARGE_TIME);
 		}
 		catch (InterruptedException ex)
 		{
 			Thread.currentThread().interrupt();
 		}
 
+		// Reset the fatigue levels back to 0.
 		setFatigue(0.0);
 	}
 }

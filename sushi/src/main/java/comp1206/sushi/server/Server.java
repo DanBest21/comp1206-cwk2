@@ -511,12 +511,14 @@ public class Server implements ServerInterface, Serializable {
 
 	public Stock getStock() { return this.stock; }
 
+	// recoverServer(Server): Method that sets the server up according to the passed server object.
 	private void recoverServer(Server recoveredServer)
 	{
 		restaurant = recoveredServer.getRestaurant();
 		dishes = recoveredServer.getDishes();
 		drones = recoveredServer.getDrones();
 
+		// For each Drone object, pass the ServerComms and DataPersistence objects to it and then start the thread, putting it in the droneThreads Map.
 		for (Drone drone : drones)
 		{
 			drone.recoverDrone(comms, dataPersistence);
@@ -530,6 +532,7 @@ public class Server implements ServerInterface, Serializable {
 		ingredients = recoveredServer.getIngredients();
 		orders = recoveredServer.getOrders();
 
+		// For each Order object, reset the order if it was out for delivery when the server crashed.
 		for (Order order : orders)
 		{
 			if (order.isOutForDelivery())
@@ -538,6 +541,7 @@ public class Server implements ServerInterface, Serializable {
 
 		staff = recoveredServer.getStaff();
 
+		// For each Staff object, pass the DataPersistence object to it and then start the thread, putting it in the staffThreads Map.
 		for (Staff staff : staff)
 		{
 			staff.recoverStaff(dataPersistence);
@@ -554,6 +558,7 @@ public class Server implements ServerInterface, Serializable {
 		stock = recoveredServer.getStock();
 	}
 
+	// interruptThreads(): Function that interrupts all staff and drone threads, and then clears the Map objects that keep track of them.
 	private void interruptThreads()
 	{
 		for (Map.Entry entry : staffThreads.entrySet())
