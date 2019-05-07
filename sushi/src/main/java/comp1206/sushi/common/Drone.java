@@ -25,7 +25,7 @@ public class Drone extends Model implements Runnable, Serializable
 	private final List<User> users;
 	private final Restaurant restaurant;
     private transient ServerComms comms;
-	private transient static boolean readyToCheck = true;
+	private transient volatile static boolean readyToCheck = true;
 	private transient DataPersistence dataPersistence;
 
 	private String currentOrder = "";
@@ -291,11 +291,7 @@ public class Drone extends Model implements Runnable, Serializable
 
 	    synchronized (RESTOCKS_IN_PROGRESS)
         {
-        	// Determine the load - either the max load possible of that ingredient on the drone, or the max load possible given the restock threshold minus the
-            // load of the current drone collections of the specific ingredient, rounded to the nearest restock amount possible (at least 1 restock amount).
-            load = Math.min(calculateMaxLoad(ingredient), Math.max(Math.round(((ingredient.getRestockThreshold().intValue() * ingredient.getWeight().intValue()) -
-                    ((RESTOCKS_IN_PROGRESS.get(ingredient).intValue() - 1) * calculateMaxLoad(ingredient)))
-                            / ingredient.getRestockAmount().intValue()), 1) * ingredient.getRestockAmount().intValue());
+            load = calculateOptimalLoad(ingredient);
         }
 
 		// Call the fly() method and put the returning map into a variable.
@@ -323,11 +319,7 @@ public class Drone extends Model implements Runnable, Serializable
 	{
 	    synchronized (RESTOCKS_IN_PROGRESS)
         {
-            // Determine the load - either the max load possible of that ingredient on the drone minus the current load, or the max load possible given the restock threshold minus the
-            // load of the current drone collections of the specific ingredient, rounded to the nearest restock amount possible (at least 1 restock amount).
-            load = Math.min(calculateMaxLoad(ingredient) - load, Math.max(Math.round(((ingredient.getRestockThreshold().intValue() * ingredient.getWeight().intValue()) -
-                    ((RESTOCKS_IN_PROGRESS.get(ingredient).intValue() - 1) * (calculateMaxLoad(ingredient))))
-                            / ingredient.getRestockAmount().intValue()), 1) * ingredient.getRestockAmount().intValue());
+            load = calculateOptimalLoad(ingredient);
         }
 
         // Call the fly() function and return the Map object it returns.
@@ -686,4 +678,15 @@ public class Drone extends Model implements Runnable, Serializable
 
 		return load;
 	}
+
+    // calculateOptimalLoad(Ingredient): Determine the load - either the max load possible of that ingredient on the drone minus the current load, or the max load possible given the restock threshold minus the
+    // load of the current drone collections of the specific ingredient, rounded to the nearest restock amount possible (at least 1 restock amount).
+	private int calculateOptimalLoad(Ingredient ingredient)
+    {
+        int maxThresholdLoad = ingredient.getRestockThreshold().intValue() * ingredient.getWeight().intValue();
+        int incomingLoad = (RESTOCKS_IN_PROGRESS.get(ingredient).intValue() - 1) * calculateMaxLoad(ingredient);
+        int stockLoad = stock.getStock(ingredient).intValue() * ingredient.getWeight().intValue();
+        int optimalBulkAmount = Math.max((maxThresholdLoad - incomingLoad - stockLoad) / ingredient.getRestockAmount().intValue(), 1);
+        return Math.min(calculateMaxLoad(ingredient), optimalBulkAmount * ingredient.getRestockAmount().intValue());
+    }
 }

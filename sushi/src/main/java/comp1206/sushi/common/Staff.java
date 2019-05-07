@@ -12,7 +12,7 @@ public class Staff extends Model implements Runnable, Serializable
 	private Number fatigue;
 	private final Stock stock;
 	private final List<Dish> dishes;
-	private transient static boolean readyToCheck = true;
+	private transient volatile static boolean readyToCheck = true;
 	private transient DataPersistence dataPersistence;
 
 	private static final int UPPER_PREP_TIME = 60;
