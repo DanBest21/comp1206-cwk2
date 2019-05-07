@@ -115,6 +115,16 @@ public class ServerComms extends Thread implements Comms
             }
             finally
             {
+                try
+                {
+                    input.close();
+                    output.close();
+                }
+                catch (IOException ex)
+                {
+                    ex.printStackTrace();
+                }
+
                 comms.removeServerListener(this);
             }
         }

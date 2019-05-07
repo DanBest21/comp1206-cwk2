@@ -72,9 +72,11 @@ public class ClientComms extends Thread implements Comms
         }
         finally
         {
-            // Always close the socket when the thread is stopped, and then exit the application.
+            // Always close the socket, input and output streams when the thread is stopped, and then exit the application.
             try
             {
+                input.close();
+                output.close();
                 socket.close();
             }
             catch (IOException ex)
