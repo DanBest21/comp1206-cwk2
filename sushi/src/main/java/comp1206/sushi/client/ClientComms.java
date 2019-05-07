@@ -9,7 +9,7 @@ import java.net.SocketException;
 import java.util.List;
 
 // ClientComms class: Handles the client-side communication between the client and the server.
-public class ClientComms extends Thread
+public class ClientComms extends Thread implements Comms
 {
     private static final String SERVER_ADDRESS = "localhost";
     private static final int PORT_NUMBER = 2066;

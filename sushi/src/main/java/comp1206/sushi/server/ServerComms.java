@@ -5,11 +5,12 @@ import comp1206.sushi.common.*;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.HashMap;
 import java.util.Map;
 
 // ServerComms class: Handles the server-side communications between the clients and the server.
-public class ServerComms extends Thread
+public class ServerComms extends Thread implements Comms
 {
     private static final int PORT_NUMBER = 2066;
     private final Map<ServerListener, User> serverListeners = new HashMap<>();
@@ -65,6 +66,67 @@ public class ServerComms extends Thread
             {
                 ex.printStackTrace();
             }
+        }
+    }
+
+    // ServerListener class: Class that monitors the socket of an individual Client connection to the comms.
+    private class ServerListener extends Thread
+    {
+        private final ServerComms comms;
+        private final ObjectInputStream input;
+        private final ObjectOutputStream output;
+        private boolean receivingData = false;
+
+        private ServerListener(ServerComms comms, ObjectInputStream input, ObjectOutputStream output)
+        {
+            super();
+
+            this.comms = comms;
+            this.input = input;
+            this.output = output;
+        }
+
+        public void run()
+        {
+            try
+            {
+                while (true)
+                {
+                    // If data is already being received, don't call receiveMessage again yet.
+                    if (!receivingData)
+                    {
+                        receivingData = true;
+                        comms.receiveMessage((String)input.readObject(), this);
+                        receivingData = false;
+                    }
+                }
+            }
+            catch (ClassNotFoundException ex)
+            {
+                ex.printStackTrace();
+            }
+            catch (SocketException ex)
+            {
+                // This likely means the thread has been cancelled, so do nothing and let the finally handle removing the listener.
+            }
+            catch (IOException ex)
+            {
+                ex.printStackTrace();
+            }
+            finally
+            {
+                comms.removeServerListener(this);
+            }
+        }
+
+        private ObjectInputStream getInputStream()
+        {
+            return input;
+        }
+
+        private ObjectOutputStream getOutputStream()
+        {
+            return output;
         }
     }
 
