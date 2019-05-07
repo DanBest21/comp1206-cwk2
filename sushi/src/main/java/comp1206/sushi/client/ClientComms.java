@@ -3,6 +3,7 @@ package comp1206.sushi.client;
 import comp1206.sushi.common.*;
 
 import java.io.*;
+import java.net.ConnectException;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.List;
@@ -30,6 +31,11 @@ public class ClientComms extends Thread
 
             output = new ObjectOutputStream(socket.getOutputStream());
             input = new ObjectInputStream(socket.getInputStream());
+        }
+        catch (ConnectException ex)
+        {
+            System.err.println("Error: Server at " + SERVER_ADDRESS +  " on port number " + PORT_NUMBER + " could not be reached.");
+            System.exit(1);
         }
         catch (IOException ex)
         {
@@ -76,8 +82,8 @@ public class ClientComms extends Thread
                 ex.printStackTrace();
             }
 
-            System.out.println("Connection to server lost - terminating client application.");
-            System.exit(1);
+            System.err.println("Error: Connection to server at " + SERVER_ADDRESS +  " on port number " + PORT_NUMBER + " lost - terminating client application.");
+            System.exit(2);
         }
     }
 
